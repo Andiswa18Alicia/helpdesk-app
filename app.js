@@ -56,7 +56,6 @@ function createTicket(data) {
   };
   tickets.unshift(ticket);
   HD.saveTickets(tickets);
-  sendEmailNotification('created', ticket);
   return ticket;
 }
 
@@ -74,9 +73,6 @@ function updateTicket(id, changes) {
     tickets[idx].resolvedAt = new Date().toISOString();
   }
   HD.saveTickets(tickets);
-  if (changes.status && changes.status !== prev.status) {
-    sendEmailNotification('updated', tickets[idx], prev.status);
-  }
   return tickets[idx];
 }
 
@@ -101,9 +97,6 @@ function addComment(ticketId, { author, text, type, attachments, mentions }) {
   ticket.comments.push(comment);
   ticket.updated = new Date().toISOString();
   HD.saveTickets(tickets);
-  if (mentions && mentions.length) {
-    sendEmailNotification('mention', ticket, null, mentions);
-  }
   return comment;
 }
 
@@ -175,65 +168,7 @@ function extractMentions(text) {
   return matches ? matches.map(m => m.slice(1)) : [];
 }
 
-// ---- EMAILJS ----
-function initEmailJS() {
-  const settings = HD.getSettings();
-  if (settings.emailjsPublicKey && typeof emailjs !== 'undefined') {
-    emailjs.init(settings.emailjsPublicKey);
-  }
-}
 
-function sendEmailNotification(event, ticket, prevStatus, mentions) {
-  const settings = HD.getSettings();
-  if (!settings.emailjsEnabled || !settings.emailjsServiceId || !settings.emailjsTemplateId) return;
-  if (typeof emailjs === 'undefined') return;
-
-  const team = HD.getTeam();
-  let recipients = [];
-
-  if (event === 'created' && ticket.submitterEmail) {
-    recipients.push(ticket.submitterEmail);
-  }
-  if (event === 'updated' && ticket.submitterEmail) {
-    recipients.push(ticket.submitterEmail);
-  }
-  if (event === 'mention' && mentions) {
-    mentions.forEach(name => {
-      const member = team.find(m => m.name.toLowerCase() === name.toLowerCase());
-      if (member && member.email) recipients.push(member.email);
-    });
-  }
-  if (ticket.assignee) {
-    const assignee = team.find(m => m.name === ticket.assignee);
-    if (assignee && assignee.email && !recipients.includes(assignee.email)) {
-      recipients.push(assignee.email);
-    }
-  }
-
-  recipients = [...new Set(recipients)];
-  if (!recipients.length) return;
-
-  const subject = event === 'created'
-    ? `[HelpDesk] New Ticket: ${ticket.id} — ${ticket.title}`
-    : event === 'mention'
-    ? `[HelpDesk] You were mentioned in ${ticket.id}`
-    : `[HelpDesk] Ticket ${ticket.id} updated: ${prevStatus} → ${ticket.status}`;
-
-  recipients.forEach(email => {
-    emailjs.send(settings.emailjsServiceId, settings.emailjsTemplateId, {
-      to_email: email,
-      subject,
-      ticket_id: ticket.id,
-      ticket_title: ticket.title,
-      ticket_status: ticket.status,
-      ticket_priority: ticket.priority,
-      ticket_url: window.location.origin + '/ticket.html?id=' + ticket.id,
-      message: event === 'mention'
-        ? 'You were mentioned in a ticket comment.'
-        : `Ticket status: ${ticket.status}. Priority: ${ticket.priority}.`,
-    }).catch(err => console.warn('EmailJS error:', err));
-  });
-}
 
 // ---- TOAST ----
 function showToast(msg, type = 'success') {
