@@ -9,12 +9,12 @@
 //  config from: Firebase Console → Project Settings → Your Apps
 // ============================================================
 const FIREBASE_CONFIG = {
-  apiKey:            "PASTE_YOUR_apiKey_HERE",
-  authDomain:        "PASTE_YOUR_authDomain_HERE",
-  projectId:         "PASTE_YOUR_projectId_HERE",
-  storageBucket:     "PASTE_YOUR_storageBucket_HERE",
-  messagingSenderId: "PASTE_YOUR_messagingSenderId_HERE",
-  appId:             "PASTE_YOUR_appId_HERE"
+  apiKey:            "AIzaSyAOJY0bTGlq0Tuxe6yKeVEkmHfE4vNKpng",
+  authDomain:        "helpdesk-pro-e6c9e.firebaseapp.com",
+  projectId:         "helpdesk-pro-e6c9e",
+  storageBucket:     "helpdesk-pro-e6c9e.firebasestorage.app",
+  messagingSenderId: "241003532299",
+  appId:             "1:241003532299:web:1be7e3da3ba4c1a7aa370e"
 };
 
 // ============================================================
