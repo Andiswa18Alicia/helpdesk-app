@@ -5,26 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HelpDesk Pro — Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,500;12..96,700;12..96,800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
-
-<!-- Firebase MUST load before app.js -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<!-- app.js loads after Firebase SDK -->
 <script src="app.js"></script>
-
 <style>
-:root {
-  --accent:#0ea5e9; --accent-dim:rgba(14,165,233,0.12); --accent-glow:rgba(14,165,233,0.25);
-  --low:#22c55e; --medium:#f59e0b; --high:#f97316; --critical:#ef4444;
-  --open:#0ea5e9; --inprogress:#a855f7; --resolved:#22c55e;
-  --radius:10px; --font-ui:'Bricolage Grotesque',sans-serif; --font-mono:'Fira Code',monospace; --transition:0.2s ease;
-}
-[data-theme="light"]{ --bg:#f0f4f8; --surface:#fff; --surface2:#f7f9fc; --border:#dde3ec; --text:#1a202c; --text2:#4a5568; --muted:#8a96a8; --shadow:0 1px 4px rgba(0,0,0,0.08),0 4px 16px rgba(0,0,0,0.05); }
-[data-theme="dark"] { --bg:#0c0e14; --surface:#13151f; --surface2:#1a1d2a; --border:#252836; --text:#e8eaf2; --text2:#9099b0; --muted:#555e72; --shadow:0 1px 4px rgba(0,0,0,0.4),0 4px 16px rgba(0,0,0,0.3); }
+:root{--accent:#0ea5e9;--accent-dim:rgba(14,165,233,0.12);--accent-glow:rgba(14,165,233,0.25);--low:#22c55e;--medium:#f59e0b;--high:#f97316;--critical:#ef4444;--open:#0ea5e9;--inprogress:#a855f7;--resolved:#22c55e;--radius:10px;--font-ui:'Bricolage Grotesque',sans-serif;--font-mono:'Fira Code',monospace;--transition:0.2s ease}
+[data-theme="light"]{--bg:#f0f4f8;--surface:#fff;--surface2:#f7f9fc;--border:#dde3ec;--text:#1a202c;--text2:#4a5568;--muted:#8a96a8;--shadow:0 1px 4px rgba(0,0,0,0.08),0 4px 16px rgba(0,0,0,0.05)}
+[data-theme="dark"]{--bg:#0c0e14;--surface:#13151f;--surface2:#1a1d2a;--border:#252836;--text:#e8eaf2;--text2:#9099b0;--muted:#555e72;--shadow:0 1px 4px rgba(0,0,0,0.4),0 4px 16px rgba(0,0,0,0.3)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size:14px;line-height:1.6;min-height:100vh;transition:background var(--transition),color var(--transition)}
-.shell{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.shell{display:grid;grid-template-columns:256px 1fr;min-height:100vh}
+
 /* SIDEBAR */
 .sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;padding:0 0 24px}
 .logo{padding:20px 20px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);margin-bottom:8px}
@@ -36,14 +28,27 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 .nav-item:hover{background:var(--surface2);color:var(--text)}.nav-item.active{background:var(--accent-dim);color:var(--accent)}
 .nav-item-left{display:flex;align-items:center;gap:9px}.nav-item-icon{font-size:15px;width:20px;text-align:center}
 .nav-badge{background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;font-family:var(--font-mono)}
+
+/* ADMIN CARDS in sidebar */
+.admin-cards{display:flex;flex-direction:column;gap:6px;padding:0 12px}
+.admin-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;transition:all var(--transition);position:relative;overflow:hidden}
+.admin-card:hover{border-color:var(--admin-color);transform:translateX(2px)}
+.admin-card.active-admin{border-color:var(--admin-color);background:color-mix(in srgb,var(--admin-color) 10%,transparent)}
+.admin-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0;background:var(--admin-color)}
+.admin-info{flex:1;min-width:0}
+.admin-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.admin-dept{font-size:11px;color:var(--muted);margin-top:1px}
+.admin-count{font-size:11px;font-weight:700;font-family:var(--font-mono);color:var(--admin-color);background:color-mix(in srgb,var(--admin-color) 12%,transparent);padding:2px 7px;border-radius:10px;flex-shrink:0}
+.admin-emoji{font-size:14px;flex-shrink:0}
+
 .sidebar-bottom{margin-top:auto;padding:12px;border-top:1px solid var(--border)}
 .theme-btn{width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;border:none;background:none;cursor:pointer;color:var(--text2);font-family:var(--font-ui);font-size:13px;font-weight:500;transition:all var(--transition)}
 .theme-btn:hover{background:var(--surface2);color:var(--text)}
+
 /* MAIN */
 .main{display:flex;flex-direction:column}
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:sticky;top:0;z-index:10}
-.page-title{font-size:18px;font-weight:800;letter-spacing:-0.02em}
-.page-sub{font-size:12px;color:var(--muted);margin-top:1px}
+.page-title{font-size:18px;font-weight:800;letter-spacing:-0.02em}.page-sub{font-size:12px;color:var(--muted);margin-top:1px}
 .topbar-actions{display:flex;align-items:center;gap:10px}
 .live-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:var(--low);font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px}
 .live-dot{width:7px;height:7px;border-radius:50%;background:var(--low);animation:pulse 2s infinite}
@@ -53,10 +58,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 .btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{color:var(--text);border-color:var(--accent)}
 .btn-sm{padding:5px 12px;font-size:12px}
 .content{padding:24px 28px;flex:1}
+
 /* SHARE BANNER */
 .share-banner{background:linear-gradient(135deg,rgba(14,165,233,0.08),rgba(168,85,247,0.08));border:1px solid var(--accent-glow);border-radius:var(--radius);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
 .share-banner-text{font-size:13px;font-weight:600}.share-banner-sub{font-size:11px;color:var(--muted);margin-top:2px}
-.share-url{font-family:var(--font-mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text2);flex:1;min-width:200px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text}
+.share-url{font-family:var(--font-mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text2);flex:1;min-width:180px;max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text}
+
+/* ADMIN FILTER BANNER */
+.admin-filter-banner{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:var(--radius);border:1px solid var(--filter-color,var(--border));background:color-mix(in srgb,var(--filter-color,var(--accent)) 8%,transparent);margin-bottom:16px}
+.admin-filter-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;background:var(--filter-color,var(--accent))}
+.admin-filter-text{flex:1;font-size:13px;font-weight:600}
+.admin-filter-sub{font-size:11px;color:var(--muted)}
+
 /* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden;animation:fadeUp 0.4s ease both}
@@ -65,12 +78,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 .stat-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--card-color,var(--accent));opacity:0.6}
 .stat-icon{font-size:22px;margin-bottom:10px}.stat-num{font-size:32px;font-weight:800;letter-spacing:-0.03em;line-height:1;margin-bottom:4px;color:var(--card-color,var(--text))}
 .stat-label{font-size:12px;color:var(--muted);font-weight:500}.stat-sub{font-size:11px;color:var(--muted);margin-top:6px;font-family:var(--font-mono)}
+
 /* CHARTS */
 .charts-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:28px}
 .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
 .chart-title{font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
 .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.bar-label{font-size:12px;color:var(--text2);min-width:70px;font-weight:500}
+.bar-label{font-size:12px;color:var(--text2);min-width:80px;font-weight:500}
 .bar-track{flex:1;height:7px;background:var(--surface2);border-radius:4px;overflow:hidden}
 .bar-fill{height:100%;border-radius:4px;transition:width 0.6s ease}
 .bar-count{font-size:11px;color:var(--muted);min-width:24px;text-align:right;font-family:var(--font-mono)}
@@ -79,6 +93,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 .legend-item{display:flex;align-items:center;gap:8px;font-size:12px}
 .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .legend-val{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+
 /* TICKETS */
 .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px}
 .section-title{font-size:15px;font-weight:700}
@@ -87,16 +102,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 .filter-chip:hover{border-color:var(--accent);color:var(--accent)}.filter-chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
 .search-bar{display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:0 12px;gap:8px;transition:border-color var(--transition)}
 .search-bar:focus-within{border-color:var(--accent)}.search-bar span{color:var(--muted);font-size:14px}
-.search-bar input{background:none;border:none;outline:none;color:var(--text);font-family:var(--font-ui);font-size:13px;padding:8px 0;width:200px}
+.search-bar input{background:none;border:none;outline:none;color:var(--text);font-family:var(--font-ui);font-size:13px;padding:8px 0;width:180px}
 .search-bar input::placeholder{color:var(--muted)}
 .ticket-list{display:flex;flex-direction:column;gap:8px}
-.ticket-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:grid;grid-template-columns:90px 1fr auto auto auto;align-items:center;gap:16px;cursor:pointer;transition:all var(--transition);text-decoration:none;color:var(--text);box-shadow:var(--shadow);animation:fadeUp 0.3s ease both;border-left:3px solid transparent}
+.ticket-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:grid;grid-template-columns:90px 1fr auto auto;align-items:center;gap:14px;cursor:pointer;transition:all var(--transition);text-decoration:none;color:var(--text);box-shadow:var(--shadow);animation:fadeUp 0.3s ease both;border-left:3px solid transparent}
 .ticket-row:hover{border-color:var(--accent);transform:translateX(2px);background:var(--surface2)}
 .ticket-row.priority-low{border-left-color:var(--low)}.ticket-row.priority-medium{border-left-color:var(--medium)}.ticket-row.priority-high{border-left-color:var(--high)}.ticket-row.priority-critical{border-left-color:var(--critical)}
 .ticket-id-col{font-family:var(--font-mono);font-size:11px;color:var(--muted)}
 .ticket-info{min-width:0}
 .ticket-title-text{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
-.ticket-meta-row{display:flex;gap:12px;font-size:11px;color:var(--muted)}
+.ticket-meta-row{display:flex;gap:10px;font-size:11px;color:var(--muted);align-items:center;flex-wrap:wrap}
 .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
 .pill-priority-low{background:rgba(34,197,94,0.12);color:var(--low);border:1px solid rgba(34,197,94,0.25)}
 .pill-priority-medium{background:rgba(245,158,11,0.12);color:var(--medium);border:1px solid rgba(245,158,11,0.25)}
@@ -105,13 +120,15 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 .pill-status-open{background:rgba(14,165,233,0.12);color:var(--open);border:1px solid rgba(14,165,233,0.25)}
 .pill-status-inprogress{background:rgba(168,85,247,0.12);color:var(--inprogress);border:1px solid rgba(168,85,247,0.25)}
 .pill-status-resolved{background:rgba(34,197,94,0.12);color:var(--resolved);border:1px solid rgba(34,197,94,0.25)}
-.assignee-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
-.assignee-avatar.empty{background:var(--surface2);color:var(--muted);border:1px dashed var(--border)}
-.ticket-time{font-size:11px;color:var(--muted);white-space:nowrap;font-family:var(--font-mono)}
+
+/* ASSIGNEE CHIP on ticket row */
+.assignee-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid;white-space:nowrap}
+
 .empty-state{text-align:center;padding:80px 24px}
 .empty-icon{font-size:48px;margin-bottom:16px;opacity:0.4}
 .empty-title{font-size:18px;font-weight:700;margin-bottom:8px}
 .empty-sub{color:var(--muted);font-size:13px}
+
 /* MODAL */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);z-index:500;align-items:center;justify-content:center;padding:24px}
 .modal-overlay.open{display:flex}
@@ -121,7 +138,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 .modal-title{font-size:16px;font-weight:700}
 .modal-close{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--muted);width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:all var(--transition)}
 .modal-close:hover{color:var(--text);border-color:var(--accent)}
-.modal-body{padding:24px;display:flex;flex-direction:column;gap:16px;max-height:70vh;overflow-y:auto}
+.modal-body{padding:24px;display:flex;flex-direction:column;gap:16px;max-height:75vh;overflow-y:auto}
 .modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .form-group{display:flex;flex-direction:column;gap:6px}
@@ -130,24 +147,34 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 .form-input::placeholder,.form-textarea::placeholder{color:var(--muted)}
 .form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent)}
 .form-textarea{resize:vertical;min-height:80px}.form-select option{background:var(--surface)}
+
+/* ADMIN PICKER in modal */
+.admin-picker{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.admin-pick-card{padding:14px 10px;border-radius:9px;border:2px solid var(--border);background:var(--surface2);cursor:pointer;transition:all var(--transition);text-align:center}
+.admin-pick-card:hover{border-color:var(--pick-color)}
+.admin-pick-card.selected{border-color:var(--pick-color);background:color-mix(in srgb,var(--pick-color) 10%,transparent)}
+.admin-pick-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;margin:0 auto 8px;background:var(--pick-color)}
+.admin-pick-name{font-size:13px;font-weight:700}
+.admin-pick-dept{font-size:11px;color:var(--muted);margin-top:2px}
+.admin-pick-emoji{font-size:18px;margin-bottom:4px}
+
 .settings-section{margin-bottom:20px}
 .settings-section h3{font-size:13px;font-weight:700;margin-bottom:12px;color:var(--text2);text-transform:uppercase;letter-spacing:0.08em}
+
 /* TOAST */
 .toast{position:fixed;bottom:24px;right:24px;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-size:13px;font-weight:500;opacity:0;transform:translateY(8px);transition:all 0.25s ease;max-width:320px}
 .toast.toast-show{opacity:1;transform:translateY(0)}
 .toast-success{border-color:var(--low)}.toast-error{border-color:var(--critical)}.toast-info{border-color:var(--accent)}
 .toast-icon{font-size:15px;flex-shrink:0}
-/* CONFIG BANNER */
-.config-banner{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.4);border-radius:var(--radius);padding:14px 20px;margin-bottom:20px;font-size:13px;color:var(--medium);display:flex;align-items:center;gap:10px}
+
 @media(max-width:900px){
   .shell{grid-template-columns:1fr}.sidebar{display:none}
   .stats-grid{grid-template-columns:1fr 1fr}.charts-row{grid-template-columns:1fr}
-  .ticket-row{grid-template-columns:1fr auto}.ticket-id-col,.ticket-time{display:none}
+  .ticket-row{grid-template-columns:1fr auto}.ticket-id-col{display:none}
 }
 </style>
 </head>
 <body>
-
 <div class="shell">
   <!-- SIDEBAR -->
   <nav class="sidebar">
@@ -155,45 +182,43 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
       <div class="logo-mark">🎫</div>
       <div class="logo-text">Help<span>Desk</span></div>
     </div>
+
     <div class="nav-section">
       <div class="nav-label">Menu</div>
       <a class="nav-item active" href="index.html">
         <span class="nav-item-left"><span class="nav-item-icon">📊</span> Dashboard</span>
       </a>
-      <button class="nav-item" onclick="filterNav('all')">
+      <button class="nav-item" onclick="clearAdminFilter();filterNav('all')">
         <span class="nav-item-left"><span class="nav-item-icon">🎫</span> All Tickets</span>
         <span class="nav-badge" id="nav-total">0</span>
       </button>
-      <button class="nav-item" onclick="filterNav('open')">
+      <button class="nav-item" onclick="clearAdminFilter();filterNav('open')">
         <span class="nav-item-left"><span class="nav-item-icon">🔵</span> Open</span>
         <span class="nav-badge" id="nav-open" style="background:var(--open)">0</span>
       </button>
-      <button class="nav-item" onclick="filterNav('inprogress')">
+      <button class="nav-item" onclick="clearAdminFilter();filterNav('inprogress')">
         <span class="nav-item-left"><span class="nav-item-icon">🟣</span> In Progress</span>
         <span class="nav-badge" id="nav-prog" style="background:var(--inprogress)">0</span>
       </button>
-      <button class="nav-item" onclick="filterNav('resolved')">
+      <button class="nav-item" onclick="clearAdminFilter();filterNav('resolved')">
         <span class="nav-item-left"><span class="nav-item-icon">🟢</span> Resolved</span>
         <span class="nav-badge" id="nav-res" style="background:var(--resolved)">0</span>
       </button>
     </div>
+
+    <!-- ADMIN CARDS -->
     <div class="nav-section">
-      <div class="nav-label">Priority</div>
-      <button class="nav-item" onclick="filterPriority('critical')">
-        <span class="nav-item-left"><span class="nav-item-icon">🔴</span> Critical</span>
-        <span class="nav-badge" id="nav-crit" style="background:var(--critical)">0</span>
-      </button>
-      <button class="nav-item" onclick="filterPriority('high')">
-        <span class="nav-item-left"><span class="nav-item-icon">🟠</span> High</span>
-        <span class="nav-badge" id="nav-high" style="background:var(--high)">0</span>
-      </button>
+      <div class="nav-label">Admins — click your name</div>
+      <div class="admin-cards" id="adminCards"></div>
     </div>
+
     <div class="nav-section">
       <div class="nav-label">Settings</div>
       <button class="nav-item" onclick="openSettings()">
         <span class="nav-item-left"><span class="nav-item-icon">⚙️</span> Settings</span>
       </button>
     </div>
+
     <div class="sidebar-bottom">
       <button class="theme-btn" onclick="toggleTheme()">
         <span id="themeIcon">🌙</span><span>Toggle Theme</span>
@@ -205,7 +230,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
   <div class="main">
     <div class="topbar">
       <div>
-        <div class="page-title">Dashboard</div>
+        <div class="page-title" id="pageTitle">Dashboard</div>
         <div class="page-sub" id="topbar-sub">Loading...</div>
       </div>
       <div class="topbar-actions">
@@ -221,10 +246,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
     </div>
 
     <div class="content">
-      <div id="configBanner" style="display:none" class="config-banner">
-        ⚠️ Firebase not configured — open <strong>app.js</strong> and paste your Firebase config to enable real-time sync.
-      </div>
-      <div class="share-banner" id="shareBanner">
+      <div class="share-banner">
         <div>
           <div class="share-banner-text">🔗 Share this link to let people submit tickets</div>
           <div class="share-banner-sub">Anyone with this link can submit and view tickets in real-time</div>
@@ -232,6 +254,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
         <input class="share-url" id="shareUrl" readonly onclick="this.select()">
         <button class="btn btn-ghost btn-sm" onclick="copyShareLink()">📋 Copy</button>
       </div>
+
+      <!-- Admin filter active banner -->
+      <div id="adminFilterBanner" style="display:none"></div>
 
       <div class="stats-grid" id="statsGrid"></div>
       <div class="charts-row" id="chartsRow"></div>
@@ -257,35 +282,17 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 <div class="modal-overlay" id="newModal">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">🎫 Create New Ticket</div>
+      <div class="modal-title">🎫 Submit a Ticket</div>
       <button class="modal-close" onclick="closeNewModal()">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label class="form-label">Title *</label>
+        <label class="form-label">Issue Title *</label>
         <input class="form-input" id="nTitle" placeholder="Brief description of the issue...">
       </div>
       <div class="form-group">
         <label class="form-label">Description</label>
-        <textarea class="form-textarea" id="nDesc" placeholder="Detailed description..."></textarea>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Category</label>
-          <select class="form-select" id="nCategory">
-            <option>IT</option><option>HR</option><option>Billing</option>
-            <option>Security</option><option>Facilities</option><option>Finance</option><option>Other</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Priority</label>
-          <select class="form-select" id="nPriority">
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
-          </select>
-        </div>
+        <textarea class="form-textarea" id="nDesc" placeholder="Describe the issue in detail..."></textarea>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -298,15 +305,24 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Assign To</label>
-        <select class="form-select" id="nAssignee">
-          <option value="">— Unassigned —</option>
+        <label class="form-label">Priority</label>
+        <select class="form-select" id="nPriority">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
         </select>
+      </div>
+      <!-- ADMIN PICKER -->
+      <div class="form-group">
+        <label class="form-label">Assign to Admin — choose based on your problem *</label>
+        <div class="admin-picker" id="adminPicker"></div>
+        <input type="hidden" id="nAssignee">
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeNewModal()">Cancel</button>
-      <button class="btn btn-primary" id="createBtn" onclick="submitNewTicket()">Create Ticket</button>
+      <button class="btn btn-primary" id="createBtn" onclick="submitNewTicket()">Submit Ticket</button>
     </div>
   </div>
 </div>
@@ -320,18 +336,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
     </div>
     <div class="modal-body">
       <div class="settings-section">
-        <h3>Team Members</h3>
-        <div id="teamList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
-        <div class="form-row">
-          <input class="form-input" id="newMemberName" placeholder="Name">
-          <input class="form-input" id="newMemberEmail" placeholder="Email">
-        </div>
-        <button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="addTeamMember()">＋ Add Member</button>
+        <h3>Admin Team</h3>
+        <div id="teamList" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeSettings()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+      <button class="btn btn-primary" onclick="closeSettings()">Done</button>
     </div>
   </div>
 </div>
@@ -340,14 +350,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 // ---- STATE ----
 let allTickets     = [];
 let activeStatus   = 'all';
-let activePriority = 'all';
-
+let activeAdmin    = null; // currently selected admin name or null
 const PRIORITY_ORDER = { critical:0,high:1,medium:2,low:3 };
 const STATUS_ORDER   = { open:0,inprogress:1,resolved:2 };
 
 // ---- INIT ----
 document.addEventListener('DOMContentLoaded', function() {
-  // Theme icon
+  // Theme
   const theme = document.documentElement.getAttribute('data-theme');
   const icon  = document.getElementById('themeIcon');
   if (icon) icon.textContent = theme === 'dark' ? '☀️' : '🌙';
@@ -355,44 +364,119 @@ document.addEventListener('DOMContentLoaded', function() {
   // Share URL
   document.getElementById('shareUrl').value = window.location.href.split('?')[0];
 
-  // Render empty stats immediately so UI doesn't look broken
-  renderStats();
-  renderCharts();
-  renderList();
+  // Render admin sidebar cards
+  renderAdminCards();
 
-  // Try Firebase
-  const firebaseOk = initFirebase();
-  if (firebaseOk) {
+  // Render admin picker in modal
+  renderAdminPicker();
+
+  // Render empty state immediately
+  renderStats(); renderCharts(); renderList();
+
+  // Firebase
+  const fbOk = initFirebase();
+  if (fbOk) {
     document.getElementById('liveBadge').style.display = 'flex';
     seedDemoData().then(() => startRealtime());
-    document.getElementById('topbar-sub').textContent = 'Connected · loading tickets...';
   } else {
-    document.getElementById('configBanner').style.display = 'flex';
-    document.getElementById('topbar-sub').textContent = 'Firebase not configured — see app.js';
+    document.getElementById('topbar-sub').textContent = '⚠️ Firebase not configured — see app.js';
   }
-
-  populateAssignee();
 });
 
 function startRealtime() {
   subscribeToTickets(tickets => {
     allTickets = tickets;
-    renderStats();
-    renderCharts();
-    renderList();
-    updateNavBadges();
+    renderStats(); renderCharts(); renderList(); updateNavBadges(); renderAdminCards();
     const today = new Date().toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'short'});
     document.getElementById('topbar-sub').textContent = today + ' · ' + tickets.length + ' total tickets';
   });
 }
 
+// ---- ADMIN SIDEBAR CARDS ----
+function renderAdminCards() {
+  const container = document.getElementById('adminCards');
+  container.innerHTML = ADMINS.map(a => {
+    const count = allTickets.filter(t => t.assignee === a.name).length;
+    const openCount = allTickets.filter(t => t.assignee === a.name && t.status !== 'resolved').length;
+    const isActive = activeAdmin === a.name;
+    return `
+      <div class="admin-card${isActive?' active-admin':''}"
+           style="--admin-color:${a.color}"
+           onclick="filterByAdmin('${a.name}')">
+        <div class="admin-avatar" style="background:${a.color}">${a.avatar}</div>
+        <div class="admin-info">
+          <div class="admin-name">${a.name}</div>
+          <div class="admin-dept">${a.emoji} ${a.department}</div>
+        </div>
+        <div class="admin-count" style="color:${a.color}">${openCount} open</div>
+      </div>`;
+  }).join('');
+}
+
+// ---- ADMIN FILTER ----
+function filterByAdmin(name) {
+  activeAdmin   = name;
+  activeStatus  = 'all';
+  const admin   = ADMINS.find(a => a.name === name);
+  document.getElementById('pageTitle').textContent = name + "'s Tickets";
+  document.getElementById('listTitle').textContent = name + "'s Tickets";
+
+  // Show filter banner
+  const banner = document.getElementById('adminFilterBanner');
+  banner.style.display = 'flex';
+  banner.className = 'admin-filter-banner';
+  banner.style.setProperty('--filter-color', admin.color);
+  const myTickets = allTickets.filter(t => t.assignee === name);
+  const open = myTickets.filter(t => t.status !== 'resolved').length;
+  banner.innerHTML = `
+    <div class="admin-filter-avatar" style="background:${admin.color}">${admin.avatar}</div>
+    <div>
+      <div class="admin-filter-text">${admin.emoji} ${name} — ${admin.department} Admin</div>
+      <div class="admin-filter-sub">${myTickets.length} total tickets · ${open} still open</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="clearAdminFilter()" style="margin-left:auto">✕ Clear</button>`;
+
+  renderAdminCards();
+  renderList();
+}
+
+function clearAdminFilter() {
+  activeAdmin = null;
+  document.getElementById('pageTitle').textContent = 'Dashboard';
+  document.getElementById('listTitle').textContent = 'All Tickets';
+  document.getElementById('adminFilterBanner').style.display = 'none';
+  renderAdminCards();
+  renderList();
+}
+
+// ---- ADMIN PICKER (modal) ----
+function renderAdminPicker(selected) {
+  const container = document.getElementById('adminPicker');
+  if (!container) return;
+  container.innerHTML = ADMINS.map(a => `
+    <div class="admin-pick-card${selected===a.name?' selected':''}"
+         style="--pick-color:${a.color}"
+         onclick="selectAdmin('${a.name}')">
+      <div class="admin-pick-emoji">${a.emoji}</div>
+      <div class="admin-pick-avatar" style="background:${a.color}">${a.avatar}</div>
+      <div class="admin-pick-name">${a.name}</div>
+      <div class="admin-pick-dept">${a.department}</div>
+    </div>`).join('');
+}
+
+function selectAdmin(name) {
+  document.getElementById('nAssignee').value = name;
+  renderAdminPicker(name);
+}
+
 // ---- STATS ----
 function renderStats() {
-  const s = getDashboardStats(allTickets);
+  const base = activeAdmin ? allTickets.filter(t=>t.assignee===activeAdmin) : allTickets;
+  const s = getDashboardStats(base);
   document.getElementById('statsGrid').innerHTML = `
     <div class="stat-card" style="--card-color:var(--accent)">
       <div class="stat-icon">🎫</div><div class="stat-num">${s.total}</div>
-      <div class="stat-label">Total Tickets</div><div class="stat-sub">+${s.today} today</div>
+      <div class="stat-label">${activeAdmin?activeAdmin+"'s":'Total'} Tickets</div><div class="stat-sub">+${s.today} today</div>
     </div>
     <div class="stat-card" style="--card-color:var(--open)">
       <div class="stat-icon">🔵</div><div class="stat-num">${s.byStatus.open||0}</div>
@@ -410,26 +494,44 @@ function renderStats() {
 
 // ---- CHARTS ----
 function renderCharts() {
-  const s = getDashboardStats(allTickets);
+  const base = activeAdmin ? allTickets.filter(t=>t.assignee===activeAdmin) : allTickets;
+  const s = getDashboardStats(base);
   const cats = Object.entries(s.byCategory).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const maxCat = cats[0]?.[1]||1;
   const catBars = cats.map(([k,v])=>`
     <div class="bar-row"><span class="bar-label">${k}</span>
       <div class="bar-track"><div class="bar-fill" style="width:${(v/maxCat)*100}%;background:var(--accent)"></div></div>
       <span class="bar-count">${v}</span></div>`).join('');
-  const priorities=[['Critical','critical','--critical'],['High','high','--high'],['Medium','medium','--medium'],['Low','low','--low']];
-  const maxP=Math.max(...priorities.map(([,k])=>s.byPriority[k]||0),1);
-  const prioBars=priorities.map(([l,k,c])=>`
-    <div class="bar-row"><span class="bar-label">${l}</span>
-      <div class="bar-track"><div class="bar-fill" style="width:${((s.byPriority[k]||0)/maxP)*100}%;background:var(${c})"></div></div>
-      <span class="bar-count">${s.byPriority[k]||0}</span></div>`).join('');
+
+  // Admin workload bar chart (replaces priority when admin selected)
+  let secondChart;
+  if (!activeAdmin) {
+    const adminsBar = ADMINS.map(a => {
+      const c = allTickets.filter(t=>t.assignee===a.name&&t.status!=='resolved').length;
+      const max = Math.max(...ADMINS.map(x=>allTickets.filter(t=>t.assignee===x.name&&t.status!=='resolved').length),1);
+      return `<div class="bar-row"><span class="bar-label">${a.name}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${(c/max)*100}%;background:${a.color}"></div></div>
+        <span class="bar-count">${c}</span></div>`;
+    }).join('');
+    secondChart = `<div class="chart-card"><div class="chart-title">Admin Workload (open)</div>${adminsBar}</div>`;
+  } else {
+    const prios=[['Critical','critical','--critical'],['High','high','--high'],['Medium','medium','--medium'],['Low','low','--low']];
+    const maxP=Math.max(...prios.map(([,k])=>s.byPriority[k]||0),1);
+    const prioBars=prios.map(([l,k,c])=>`
+      <div class="bar-row"><span class="bar-label">${l}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${((s.byPriority[k]||0)/maxP)*100}%;background:var(${c})"></div></div>
+        <span class="bar-count">${s.byPriority[k]||0}</span></div>`).join('');
+    secondChart = `<div class="chart-card"><div class="chart-title">By Priority</div>${prioBars}</div>`;
+  }
+
   const sData=[{label:'Open',key:'open',color:'var(--open)',hex:'#0ea5e9'},{label:'In Progress',key:'inprogress',color:'var(--inprogress)',hex:'#a855f7'},{label:'Resolved',key:'resolved',color:'var(--resolved)',hex:'#22c55e'}];
-  const total=allTickets.length||1; let offset=0;
-  const slices=sData.map(d=>{const v=s.byStatus[d.key]||0,pct=v/total,dash=pct*100,gap=100-dash;const sl=`<circle cx="20" cy="20" r="15.9" fill="none" stroke="${d.hex}" stroke-width="4" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}"/>`;offset+=dash;return sl;}).join('');
+  const total=base.length||1; let offset=0;
+  const slices=sData.map(d=>{const v=s.byStatus[d.key]||0,dash=(v/total)*100,gap=100-dash;const sl=`<circle cx="20" cy="20" r="15.9" fill="none" stroke="${d.hex}" stroke-width="4" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}"/>`;offset+=dash;return sl;}).join('');
   const legend=sData.map(d=>`<div class="legend-item"><span class="legend-dot" style="background:${d.color}"></span><span>${d.label}</span><span class="legend-val">${s.byStatus[d.key]||0}</span></div>`).join('');
+
   document.getElementById('chartsRow').innerHTML=`
     <div class="chart-card"><div class="chart-title">By Category</div>${catBars||'<div style="color:var(--muted);font-size:12px">No tickets yet</div>'}</div>
-    <div class="chart-card"><div class="chart-title">By Priority</div>${prioBars}</div>
+    ${secondChart}
     <div class="chart-card"><div class="chart-title">By Status</div>
       <div class="donut-wrap">
         <svg width="80" height="80" viewBox="0 0 40 40">
@@ -445,8 +547,6 @@ function updateNavBadges() {
   document.getElementById('nav-open').textContent  = allTickets.filter(t=>t.status==='open').length;
   document.getElementById('nav-prog').textContent  = allTickets.filter(t=>t.status==='inprogress').length;
   document.getElementById('nav-res').textContent   = allTickets.filter(t=>t.status==='resolved').length;
-  document.getElementById('nav-crit').textContent  = allTickets.filter(t=>t.priority==='critical').length;
-  document.getElementById('nav-high').textContent  = allTickets.filter(t=>t.priority==='high').length;
 }
 
 // ---- FILTER CHIPS ----
@@ -458,11 +558,10 @@ function renderFilterChips() {
 
 // ---- TICKET LIST ----
 function getFiltered() {
-  let list=[...allTickets];
+  let list = activeAdmin ? allTickets.filter(t=>t.assignee===activeAdmin) : [...allTickets];
   const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
   if(q) list=list.filter(t=>t.title.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.submitter.toLowerCase().includes(q)||(t.desc||'').toLowerCase().includes(q));
   if(activeStatus!=='all') list=list.filter(t=>t.status===activeStatus);
-  if(activePriority!=='all') list=list.filter(t=>t.priority===activePriority);
   const sort=document.getElementById('sortSelect')?.value||'newest';
   if(sort==='newest')   list.sort((a,b)=>new Date(b.created)-new Date(a.created));
   if(sort==='oldest')   list.sort((a,b)=>new Date(a.created)-new Date(b.created));
@@ -473,38 +572,42 @@ function getFiltered() {
 
 function renderList() {
   renderFilterChips();
-  const list=getFiltered(), el=document.getElementById('ticketList'), team=LOCAL.getTeam();
+  const list=getFiltered(), el=document.getElementById('ticketList');
   if(!list.length){
-    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">No tickets found</div><div class="empty-sub">Create your first ticket or adjust your filters</div></div>`;
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">${activeAdmin?'🎉':'🎫'}</div>
+      <div class="empty-title">${activeAdmin?'No tickets for '+activeAdmin:'No tickets found'}</div>
+      <div class="empty-sub">${activeAdmin?'All clear! No open tickets assigned here.':'Create the first ticket or adjust your filters'}</div></div>`;
     return;
   }
   el.innerHTML=list.map(t=>{
-    const member=team.find(m=>m.name===t.assignee);
-    const initial=member?member.avatar:(t.assignee?t.assignee[0].toUpperCase():'?');
-    const isEmpty=!t.assignee;
-    return `<a class="ticket-row priority-${t.priority}" href="ticket.html?id=${t.id}">
+    const admin = ADMINS.find(a=>a.name===t.assignee);
+    const assigneeChip = admin
+      ? `<span class="assignee-chip" style="color:${admin.color};border-color:color-mix(in srgb,${admin.color} 40%,transparent);background:color-mix(in srgb,${admin.color} 10%,transparent)">${admin.emoji} ${admin.name}</span>`
+      : `<span style="font-size:11px;color:var(--muted)">Unassigned</span>`;
+    return `
+    <a class="ticket-row priority-${t.priority}" href="ticket.html?id=${t.id}">
       <span class="ticket-id-col">${t.id}</span>
       <div class="ticket-info">
         <div class="ticket-title-text">${escHtml(t.title)}</div>
-        <div class="ticket-meta-row"><span>📁 ${t.category}</span><span>👤 ${escHtml(t.submitter)}</span>
+        <div class="ticket-meta-row">
+          <span>👤 ${escHtml(t.submitter)}</span>
+          <span>🕐 ${timeAgo(t.created)}</span>
           ${t.comments.length?`<span>💬 ${t.comments.length}</span>`:''}
+          ${assigneeChip}
         </div>
       </div>
       <span class="pill pill-priority-${t.priority}">${t.priority}</span>
       <span class="pill pill-status-${t.status}">${t.status==='inprogress'?'In Progress':t.status.charAt(0).toUpperCase()+t.status.slice(1)}</span>
-      <div class="assignee-avatar${isEmpty?' empty':''}">${isEmpty?'?':initial}</div>
-      <span class="ticket-time">${timeAgo(t.created)}</span>
     </a>`;
   }).join('');
 }
 
 // ---- FILTER ----
-function filterNav(status){
-  activeStatus=status; activePriority='all';
-  document.getElementById('listTitle').textContent=status==='all'?'All Tickets':status==='inprogress'?'In Progress':status.charAt(0).toUpperCase()+status.slice(1);
+function filterNav(status) {
+  activeStatus=status;
+  if(!activeAdmin) document.getElementById('listTitle').textContent=status==='all'?'All Tickets':status==='inprogress'?'In Progress':status.charAt(0).toUpperCase()+status.slice(1);
   renderList();
 }
-function filterPriority(p){ activePriority=p; activeStatus='all'; document.getElementById('listTitle').textContent=p.charAt(0).toUpperCase()+p.slice(1)+' Priority'; renderList(); }
 
 // ---- COPY SHARE LINK ----
 function copyShareLink() {
@@ -515,84 +618,61 @@ function copyShareLink() {
 }
 
 // ---- NEW TICKET ----
-function populateAssignee() {
-  const sel=document.getElementById('nAssignee'), team=LOCAL.getTeam();
-  if(!sel) return;
-  sel.innerHTML='<option value="">— Unassigned —</option>'+team.map(m=>`<option value="${escHtml(m.name)}">${escHtml(m.name)} (${m.role})</option>`).join('');
-}
-
 function openNewModal() {
-  populateAssignee();
+  renderAdminPicker();
+  document.getElementById('nAssignee').value = '';
   document.getElementById('newModal').classList.add('open');
-  setTimeout(()=>document.getElementById('nTitle').focus(), 100);
+  setTimeout(()=>document.getElementById('nTitle').focus(),100);
 }
-
 function closeNewModal() {
   document.getElementById('newModal').classList.remove('open');
   ['nTitle','nDesc','nSubmitter','nEmail'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  renderAdminPicker();
+  document.getElementById('nAssignee').value='';
 }
 
 async function submitNewTicket() {
-  const title    = (document.getElementById('nTitle')?.value||'').trim();
-  const submitter= (document.getElementById('nSubmitter')?.value||'').trim();
-  const email    = (document.getElementById('nEmail')?.value||'').trim();
+  const title    =(document.getElementById('nTitle')?.value||'').trim();
+  const submitter=(document.getElementById('nSubmitter')?.value||'').trim();
+  const email    =(document.getElementById('nEmail')?.value||'').trim();
+  const assignee =(document.getElementById('nAssignee')?.value||'').trim();
   if(!title)    { showToast('Title is required','error'); return; }
-  if(!submitter){ showToast('Name is required','error'); return; }
-  if(!email)    { showToast('Email is required','error'); return; }
+  if(!submitter){ showToast('Your name is required','error'); return; }
+  if(!email)    { showToast('Your email is required','error'); return; }
+  if(!assignee) { showToast('Please choose an admin to assign this ticket to','error'); return; }
+  if(!isFirebaseReady()){ showToast('Firebase not connected','error'); return; }
 
-  if(!isFirebaseReady()) { showToast('Firebase not connected — check app.js config','error'); return; }
-
+  const admin = ADMINS.find(a=>a.name===assignee);
   const btn=document.getElementById('createBtn');
-  btn.disabled=true; btn.textContent='Creating...';
+  btn.disabled=true; btn.textContent='Submitting...';
   try {
-    const t = await createTicket({
-      title,
-      desc:      document.getElementById('nDesc').value.trim(),
-      category:  document.getElementById('nCategory').value,
-      priority:  document.getElementById('nPriority').value,
-      submitter, submitterEmail:email,
-      assignee:  document.getElementById('nAssignee').value,
+    const t=await createTicket({
+      title, desc:document.getElementById('nDesc').value.trim(),
+      category: admin ? admin.department : 'General',
+      priority: document.getElementById('nPriority').value,
+      submitter, submitterEmail:email, assignee,
     });
-    if(t) { closeNewModal(); showToast(`${t.id} created!`,'success'); }
-  } catch(e) { showToast('Error creating ticket','error'); console.error(e); }
-  finally { btn.disabled=false; btn.textContent='Create Ticket'; }
+    if(t){ closeNewModal(); showToast(`${t.id} submitted to ${assignee}!`,'success'); }
+  } catch(e){ showToast('Error submitting ticket','error'); console.error(e); }
+  finally{ btn.disabled=false; btn.textContent='Submit Ticket'; }
 }
 
 // ---- SETTINGS ----
-function openSettings()  { renderTeamList(LOCAL.getTeam()); document.getElementById('settingsModal').classList.add('open'); }
-function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
-
-function renderTeamList(team) {
-  document.getElementById('teamList').innerHTML = team.length ? team.map((m,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface2);border-radius:7px">
-      <div class="assignee-avatar" style="background:var(--accent);flex-shrink:0">${m.avatar}</div>
-      <div style="flex:1"><div style="font-weight:600;font-size:13px">${escHtml(m.name)}</div>
-        <div style="font-size:11px;color:var(--muted)">${escHtml(m.email)} · ${m.role}</div></div>
-      <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="removeTeamMember(${i})">✕</button>
-    </div>`).join('') : '<div style="color:var(--muted);font-size:13px">No team members yet</div>';
+function openSettings() {
+  document.getElementById('teamList').innerHTML = ADMINS.map(a=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2);border-radius:9px;border:1px solid var(--border)">
+      <div style="width:40px;height:40px;border-radius:50%;background:${a.color};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;flex-shrink:0">${a.avatar}</div>
+      <div>
+        <div style="font-weight:700;font-size:14px">${a.emoji} ${a.name}</div>
+        <div style="font-size:12px;color:var(--muted)">${a.department} Admin · ${allTickets.filter(t=>t.assignee===a.name&&t.status!=='resolved').length} open tickets</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('settingsModal').classList.add('open');
 }
+function closeSettings(){ document.getElementById('settingsModal').classList.remove('open'); }
 
-function addTeamMember() {
-  const name=document.getElementById('newMemberName').value.trim();
-  const email=document.getElementById('newMemberEmail').value.trim();
-  if(!name){ showToast('Name required','error'); return; }
-  const team=LOCAL.getTeam();
-  team.push({name,email,role:'Agent',avatar:name[0].toUpperCase()});
-  LOCAL.saveTeam(team); renderTeamList(team);
-  document.getElementById('newMemberName').value='';
-  document.getElementById('newMemberEmail').value='';
-  showToast(name+' added','success');
-}
-
-function removeTeamMember(i) {
-  const team=LOCAL.getTeam(); team.splice(i,1); LOCAL.saveTeam(team); renderTeamList(team);
-}
-
-function saveSettings() { closeSettings(); showToast('Settings saved!','success'); }
-
-// Close on overlay click & keyboard
 ['newModal','settingsModal'].forEach(id=>{
-  document.getElementById(id).addEventListener('click',e=>{if(e.target.id===id) document.getElementById(id).classList.remove('open');});
+  document.getElementById(id).addEventListener('click',e=>{ if(e.target.id===id) document.getElementById(id).classList.remove('open'); });
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){closeNewModal();closeSettings();}
