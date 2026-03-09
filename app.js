@@ -7,14 +7,27 @@
 //  🔥 FIREBASE CONFIG — paste your config object here
 //  Get it from: Firebase Console → Project Settings → Your Apps
 // ============================================================
-const FIREBASE_CONFIG = {
-  apiKey:            "PASTE_YOUR_apiKey_HERE",
-  authDomain:        "PASTE_YOUR_authDomain_HERE",
-  projectId:         "PASTE_YOUR_projectId_HERE",
-  storageBucket:     "PASTE_YOUR_storageBucket_HERE",
-  messagingSenderId: "PASTE_YOUR_messagingSenderId_HERE",
-  appId:             "PASTE_YOUR_appId_HERE"
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAOJY0bTGlq0Tuxe6yKeVEkmHfE4vNKpng",
+  authDomain: "helpdesk-pro-e6c9e.firebaseapp.com",
+  projectId: "helpdesk-pro-e6c9e",
+  storageBucket: "helpdesk-pro-e6c9e.firebasestorage.app",
+  messagingSenderId: "241003532299",
+  appId: "1:241003532299:web:1be7e3da3ba4c1a7aa370e",
+  measurementId: "G-RLQDSF296X"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
 // ============================================================
 //  FIREBASE INIT
