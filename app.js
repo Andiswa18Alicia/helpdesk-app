@@ -81,16 +81,24 @@ const LOCAL = {
   saveSettings(s) { localStorage.setItem('hd_settings', JSON.stringify(s)); },
 };
 
-// Ensure default team exists on first load
+// ============================================================
+//  ADMINS — the 3 fixed admins
+// ============================================================
+const ADMINS = [
+  { name:'Andiswa',    department:'Software', avatar:'A', color:'#0ea5e9', emoji:'💻' },
+  { name:'Relebohile', department:'Hardware', avatar:'R', color:'#a855f7', emoji:'🖥️' },
+  { name:'Lwando',     department:'Network',  avatar:'L', color:'#22c55e', emoji:'🌐' },
+];
+
+// Always sync team to match ADMINS
 (function ensureDefaultTeam() {
-  if (LOCAL.getTeam().length === 0) {
-    LOCAL.saveTeam([
-      { name:'Andiswa', email:'andiswa@helpdesk.com', role:'Agent',   avatar:'A' },
-      { name:'Thabo',   email:'thabo@helpdesk.com',   role:'Agent',   avatar:'T' },
-      { name:'Priya',   email:'priya@helpdesk.com',   role:'Manager', avatar:'P' },
-      { name:'Sipho',   email:'sipho@helpdesk.com',   role:'Agent',   avatar:'S' },
-    ]);
-  }
+  LOCAL.saveTeam(ADMINS.map(a => ({
+    name:  a.name,
+    email: a.name.toLowerCase() + '@helpdesk.com',
+    role:  a.department + ' Admin',
+    avatar:a.avatar,
+    color: a.color,
+  })));
 })();
 
 // ============================================================
@@ -208,14 +216,14 @@ async function seedDemoData() {
   if (!snap.empty) return;
 
   const demos = [
-    { title:'Cannot connect to VPN from home',   desc:'Auth failed since password reset. Tried restarting.',       category:'IT',        priority:'high',     submitter:'John Mokoena',    submitterEmail:'john@example.com',    assignee:'Andiswa', status:'open',       daysAgo:0 },
-    { title:'Outlook crashes on startup',         desc:'Crashes immediately after launch. Win 11, Office 365.',    category:'IT',        priority:'medium',   submitter:'Priya Naidoo',    submitterEmail:'priya.n@example.com', assignee:'Thabo',   status:'inprogress', daysAgo:1 },
-    { title:'New employee laptop setup',          desc:'New employee Monday. Needs laptop, VPN, domain join.',     category:'IT',        priority:'low',      submitter:'HR Department',   submitterEmail:'hr@example.com',      assignee:'Sipho',   status:'open',       daysAgo:2 },
-    { title:'Suspected phishing email received',  desc:'Email claiming to be IT asking for credentials.',          category:'Security',  priority:'critical', submitter:'Thabo Dlamini',   submitterEmail:'thabo.d@example.com', assignee:'Priya',   status:'inprogress', daysAgo:0 },
-    { title:'Payroll system login issue',         desc:'Payroll portal locked. Run is tomorrow.',                  category:'HR',        priority:'high',     submitter:'Finance Team',    submitterEmail:'finance@example.com', assignee:'Andiswa', status:'resolved',   daysAgo:3 },
-    { title:'Invoice not generating in billing',  desc:'Client invoice #4821 failed. Error BIL-404.',              category:'Billing',   priority:'critical', submitter:'Sales Dept',      submitterEmail:'sales@example.com',   assignee:'Thabo',   status:'open',       daysAgo:0 },
-    { title:'Printer offline in Finance office',  desc:'HP LaserJet 3rd floor offline. Multiple users affected.', category:'IT',        priority:'medium',   submitter:'Lindiwe Khumalo', submitterEmail:'lindiwe@example.com', assignee:'Sipho',   status:'resolved',   daysAgo:5 },
-    { title:'Request for additional monitors',    desc:'Dev team needs 4 second monitors.',                        category:'Facilities',priority:'low',      submitter:'Dev Team Lead',   submitterEmail:'devlead@example.com', assignee:'',        status:'open',       daysAgo:4 },
+    { title:'Cannot connect to VPN from home',     desc:'Auth failed since password reset. Tried restarting.',        category:'Software',  priority:'high',     submitter:'John Mokoena',    submitterEmail:'john@example.com',     assignee:'Andiswa',    status:'open',       daysAgo:0 },
+    { title:'App crashes on startup',              desc:'App crashes immediately after launch on Windows 11.',        category:'Software',  priority:'medium',   submitter:'Priya Naidoo',    submitterEmail:'priya.n@example.com',  assignee:'Andiswa',    status:'inprogress', daysAgo:1 },
+    { title:'Keyboard not working',                desc:'Keyboard completely unresponsive after spilling water.',     category:'Hardware',  priority:'high',     submitter:'HR Department',   submitterEmail:'hr@example.com',       assignee:'Relebohile', status:'open',       daysAgo:2 },
+    { title:'Monitor flickering',                  desc:'Monitor flickers every few minutes, very distracting.',     category:'Hardware',  priority:'medium',   submitter:'Thabo Dlamini',   submitterEmail:'thabo.d@example.com',  assignee:'Relebohile', status:'inprogress', daysAgo:0 },
+    { title:'Cannot access shared network drive',  desc:'Getting permission denied when accessing the shared drive.', category:'Network',   priority:'high',     submitter:'Finance Team',    submitterEmail:'finance@example.com',  assignee:'Lwando',     status:'resolved',   daysAgo:3 },
+    { title:'WiFi dropping every hour',            desc:'WiFi disconnects every hour and requires manual reconnect.', category:'Network',   priority:'critical', submitter:'Sales Dept',      submitterEmail:'sales@example.com',    assignee:'Lwando',     status:'open',       daysAgo:0 },
+    { title:'Printer not connecting',              desc:'Office printer shows offline, cannot print anything.',       category:'Hardware',  priority:'medium',   submitter:'Lindiwe Khumalo', submitterEmail:'lindiwe@example.com',  assignee:'Relebohile', status:'resolved',   daysAgo:5 },
+    { title:'Slow internet in meeting room',       desc:'Internet speed in meeting room is very slow during calls.',  category:'Network',   priority:'low',      submitter:'Dev Team Lead',   submitterEmail:'devlead@example.com',  assignee:'Lwando',     status:'open',       daysAgo:4 },
   ];
 
   await _db.collection('meta').doc('counter').set({ value: 1000 });
@@ -233,14 +241,26 @@ async function seedDemoData() {
     };
     if (counter === 1001) {
       t.comments = [
-        { id:'CMT-1', author:'Andiswa', text:"Hi John, looking into this. Which VPN client version? @Thabo can you check the auth logs?", type:'public',   attachments:[], mentions:['Thabo'], created:new Date(Date.now()-3600000).toISOString() },
-        { id:'CMT-2', author:'Thabo',   text:'Checked logs — auth failures from this IP. User profile needs refresh in AD.',              type:'internal', attachments:[], mentions:[],       created:new Date(Date.now()-1800000).toISOString() },
+        { id:'CMT-1', author:'Andiswa',    text:'Hi John, looking into this now. Can you confirm which app version you are running? @Relebohile can you check if this is hardware related?', type:'public',   attachments:[], mentions:['Relebohile'], created:new Date(Date.now()-3600000).toISOString() },
+        { id:'CMT-2', author:'Relebohile', text:'Checked on my end — looks like a software issue, not hardware. Handing back to Andiswa.', type:'internal', attachments:[], mentions:[], created:new Date(Date.now()-1800000).toISOString() },
       ];
     }
     await _db.collection('tickets').doc(t.id).set(t);
   }
   await _db.collection('meta').doc('counter').set({ value: counter });
   console.log('✅ Demo data seeded');
+}
+
+// Filter tickets by admin
+function subscribeToTicketsByAdmin(adminName, callback) {
+  if (!isFirebaseReady()) return () => {};
+  return _db.collection('tickets')
+    .where('assignee', '==', adminName)
+    .orderBy('created', 'desc')
+    .onSnapshot(
+      snap => callback(snap.docs.map(d => d.data())),
+      err  => console.error('Admin filter error:', err)
+    );
 }
 
 // ============================================================
@@ -308,3 +328,27 @@ function showToast(msg, type='success') {
   setTimeout(()=>t.classList.add('toast-show'),10);
   setTimeout(()=>{t.classList.remove('toast-show');setTimeout(()=>t.remove(),300);},3200);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
