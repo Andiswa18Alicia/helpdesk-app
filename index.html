@@ -317,7 +317,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
             🔔<span id="notifCount" style="position:absolute;top:-4px;right:-4px;background:var(--critical);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:10px;min-width:16px;text-align:center;display:none">0</span>
           </button>
         </div>
-        <button class="btn btn-ghost" onclick="doAdminLogout()" style="font-size:12px">Sign Out</button>
+        <button class="btn btn-ghost" onclick="logout()" style="font-size:12px">Sign Out</button>
         <button class="btn btn-primary" onclick="openNewModal()">＋ New Ticket</button>
       </div>
     </div>
@@ -521,20 +521,6 @@ const STATUS_ORDER   = { open:0,inprogress:1,resolved:2 };
 
 // ---- INIT ----
 document.addEventListener('DOMContentLoaded', function() {
-  // ── AUTH GUARD ──
-  if (!requireAdmin()) return;
-  const adminSession = getSession();
-  // Show notification bell only for senior admin
-  if (adminSession && adminSession.name === 'Andiswa') {
-    document.getElementById('notifBell').style.display = 'block';
-    subscribeToNotifications(notifs => {
-      const count = notifs.length;
-      const badge = document.getElementById('notifCount');
-      badge.textContent = count;
-      badge.style.display = count > 0 ? 'block' : 'none';
-    });
-  }
-
   // ── AUTH GUARD — admins only ──
   const sess = SESSION.get();
   if (!sess) return window.location.href = 'login.html';
@@ -1043,35 +1029,23 @@ function logout() {
 }
 
 // ---- NOTIFICATIONS & ACCESS REQUESTS (senior admin) ----
-let pendingReqsUnsub = null;
-let currentApproveReq = null;
-
+// ── NOTIFICATIONS / ACCESS REQUESTS (uses SESSION + app.js functions) ──
 function openNotifications() {
   document.getElementById('notifModal').classList.add('open');
-  document.getElementById('notifList').innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">Loading...</div>';
-  if (pendingReqsUnsub) pendingReqsUnsub();
-  pendingReqsUnsub = subscribeToPendingRequests(reqs => {
-    if (reqs.length === 0) {
-      document.getElementById('notifList').innerHTML = `
-        <div style="text-align:center;padding:40px;color:var(--muted)">
-          <div style="font-size:32px;margin-bottom:12px">✅</div>
-          <div style="font-weight:700;color:var(--text2)">No pending requests</div>
-          <div style="font-size:12px;margin-top:4px">All access requests have been reviewed.</div>
-        </div>`;
+  const listEl = document.getElementById('notifList');
+  listEl.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">Loading...</div>';
+  getAccessRequests().then(reqs => {
+    if (!reqs.length) {
+      listEl.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">No pending requests</div>';
       return;
     }
-    document.getElementById('notifList').innerHTML = reqs.map(r => `
-      <div style="padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:14px">
-        <div>
-          <div style="font-weight:700;font-size:14px">${escHtml(r.name)}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:3px">📧 ${escHtml(r.email)} &nbsp;·&nbsp; 🏢 ${escHtml(r.department)}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">⏰ ${timeAgo(r.created)}</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-shrink:0">
-          <button class="btn btn-ghost" style="font-size:12px;padding:5px 10px;border-color:var(--critical);color:var(--critical)"
-                  onclick="rejectReq('${r.id}')">✕ Reject</button>
-          <button class="btn btn-primary" style="font-size:12px;padding:5px 12px"
-                  onclick="openApprove(${JSON.stringify(r).replace(/"/g,'&quot;')})">✅ Approve</button>
+    listEl.innerHTML = reqs.map(r => `
+      <div style="padding:14px;border-bottom:1px solid var(--border)">
+        <div style="font-weight:700">${escHtml(r.name)}</div>
+        <div style="font-size:12px;color:var(--muted)">${escHtml(r.email)} · ${escHtml(r.department)}</div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-primary" style="font-size:12px;padding:5px 12px" onclick="doApproveReq('${r.id}',${JSON.stringify(r).replace(/"/g,'&quot;')})">✅ Approve</button>
+          <button class="btn btn-ghost" style="font-size:12px;padding:5px 12px;color:var(--critical)" onclick="doDenyReq('${r.id}')">❌ Deny</button>
         </div>
       </div>`).join('');
   });
@@ -1079,46 +1053,22 @@ function openNotifications() {
 
 function closeNotifications() {
   document.getElementById('notifModal').classList.remove('open');
-  if (pendingReqsUnsub) { pendingReqsUnsub(); pendingReqsUnsub = null; }
 }
 
-function openApprove(req) {
-  currentApproveReq = req;
-  const uname = generateUsername(req.name, req.department);
-  const pwd   = generatePassword();
-  document.getElementById('approveInfo').innerHTML =
-    `<strong>${escHtml(req.name)}</strong> from <strong>${escHtml(req.department)}</strong><br>
-     📧 ${escHtml(req.email)}`;
-  document.getElementById('approveUsername').value = uname;
-  document.getElementById('approvePassword').value = pwd;
-  document.getElementById('approveModal').classList.add('open');
-}
-
-async function confirmApprove() {
-  if (!currentApproveReq) return;
-  const uname = document.getElementById('approveUsername').value.trim();
-  const pwd   = document.getElementById('approvePassword').value.trim();
-  if (!uname || !pwd) { showToast('Username and password required.', 'error'); return; }
-  const btn = document.getElementById('approveConfirmBtn');
-  btn.disabled = true; btn.textContent = 'Creating...';
-  const r = await approveAccess(currentApproveReq.id, uname, pwd);
-  btn.disabled = false; btn.innerHTML = '✅ Approve & Create Account';
-  if (r.ok) {
-    document.getElementById('approveModal').classList.remove('open');
-    showToast(`Account created: ${uname} / ${pwd}`, 'success');
-    currentApproveReq = null;
-  } else {
-    showToast(r.msg || 'Error approving request.', 'error');
+async function doApproveReq(reqId, req) {
+  const result = await approveAccessRequest(reqId, req);
+  if (result.ok) {
+    showToast(`✅ ${req.name} approved! Username: ${result.username}`, 'success');
+    closeNotifications();
   }
 }
 
-async function rejectReq(reqId) {
-  if (!confirm('Reject this access request?')) return;
-  await rejectAccess(reqId);
-  showToast('Request rejected.', 'error');
+async function doDenyReq(reqId) {
+  if (!confirm('Deny this access request?')) return;
+  await denyAccessRequest(reqId);
+  showToast('Request denied.', 'error');
+  closeNotifications();
 }
-
-function doAdminLogout() { clearSession(); window.location.href = 'login.html'; }
 
 // ---- COLLAPSIBLE NAV DROPDOWNS ----
 function toggleNavGroup(btn) {
