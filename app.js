@@ -316,6 +316,60 @@ function fileIcon(type) {
   return '📄';
 }
 
+
+// ============================================================
+//  COMMUNITY CHANNEL — Firestore operations
+// ============================================================
+async function postMessage(data) {
+  if (!isFirebaseReady()) { showToast('Firebase not connected', 'error'); return null; }
+  const msg = {
+    id:          'MSG-' + Date.now(),
+    author:      data.author || 'Anonymous',
+    text:        data.text || '',
+    attachments: data.attachments || [],
+    pinned:      false,
+    reactions:   {},   // { emoji: [author1, author2, ...] }
+    created:     new Date().toISOString(),
+    isAdmin:     ADMINS.some(a => a.name === data.author),
+  };
+  await _db.collection('community').doc(msg.id).set(msg);
+  return msg;
+}
+
+async function deleteMessage(id) {
+  if (!isFirebaseReady()) return;
+  await _db.collection('community').doc(id).delete();
+}
+
+async function pinMessage(id, pinned) {
+  if (!isFirebaseReady()) return;
+  await _db.collection('community').doc(id).update({ pinned });
+}
+
+async function reactToMessage(id, emoji, author) {
+  if (!isFirebaseReady()) return;
+  const ref = _db.collection('community').doc(id);
+  const doc = await ref.get();
+  if (!doc.exists) return;
+  const reactions = doc.data().reactions || {};
+  const users = reactions[emoji] || [];
+  const idx = users.indexOf(author);
+  if (idx === -1) users.push(author);
+  else users.splice(idx, 1);
+  reactions[emoji] = users;
+  await ref.update({ reactions });
+}
+
+function subscribeToMessages(callback) {
+  if (!isFirebaseReady()) return () => {};
+  return _db.collection('community')
+    .orderBy('created', 'asc')
+    .onSnapshot(
+      snap => callback(snap.docs.map(d => d.data())),
+      err  => console.error('Community listener error:', err)
+    );
+}
+
 // ============================================================
 //  TOAST
 // ============================================================
@@ -328,27 +382,3 @@ function showToast(msg, type='success') {
   setTimeout(()=>t.classList.add('toast-show'),10);
   setTimeout(()=>{t.classList.remove('toast-show');setTimeout(()=>t.remove(),300);},3200);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
