@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Access Requests — HelpDesk Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,500;12..96,700;12..96,800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+<style>
+:root{--accent:#0ea5e9;--accent-dim:rgba(14,165,233,0.12);--low:#22c55e;--medium:#f59e0b;--critical:#ef4444;--font-ui:'Bricolage Grotesque',sans-serif;--font-mono:'Fira Code',monospace;--transition:0.2s ease}
+[data-theme="light"]{--bg:#f0f4f8;--surface:#fff;--surface2:#f7f9fc;--border:#dde3ec;--text:#1a202c;--text2:#4a5568;--muted:#8a96a8;--shadow:0 2px 8px rgba(0,0,0,0.06)}
+[data-theme="dark"]{--bg:#0c0e14;--surface:#13151f;--surface2:#1a1d2a;--border:#252836;--text:#e8eaf2;--text2:#9099b0;--muted:#555e72;--shadow:0 2px 8px rgba(0,0,0,0.3)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-height:100vh;transition:background var(--transition),color var(--transition)}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.back-btn{display:flex;align-items:center;gap:6px;color:var(--text2);text-decoration:none;font-size:13px;font-weight:500;padding:6px 12px;border-radius:7px;border:1px solid var(--border);transition:all var(--transition)}
+.back-btn:hover{border-color:var(--accent);color:var(--accent)}
+.page-title{font-size:18px;font-weight:800;letter-spacing:-0.02em}
+.page-sub{font-size:12px;color:var(--muted);margin-top:1px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:7px;font-family:var(--font-ui);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all var(--transition)}
+.btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-approve{background:var(--low);color:#fff}.btn-approve:hover{filter:brightness(1.1)}
+.btn-deny{background:rgba(239,68,68,0.1);color:var(--critical);border:1px solid rgba(239,68,68,0.3)}.btn-deny:hover{background:var(--critical);color:#fff}
+
+.live-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:#22c55e;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+.content{max-width:760px;margin:0 auto;padding:28px 20px 60px}
+
+/* STATS */
+.req-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px}
+.req-stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;box-shadow:var(--shadow)}
+.req-stat-num{font-size:28px;font-weight:800;letter-spacing:-0.03em;color:var(--sc)}
+.req-stat-label{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* REQUEST CARDS */
+.req-list{display:flex;flex-direction:column;gap:12px}
+.req-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px;box-shadow:var(--shadow);transition:all var(--transition)}
+.req-card:hover{border-color:rgba(14,165,233,0.3)}
+.req-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.req-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0}
+.req-name{font-size:15px;font-weight:800;margin-bottom:3px}
+.req-email{font-size:12px;color:var(--muted);font-family:var(--font-mono)}
+.req-dept-chip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;background:var(--accent-dim);color:var(--accent);font-size:11px;font-weight:700;margin-top:6px}
+.req-time{font-size:11px;color:var(--muted);font-family:var(--font-mono);text-align:right;flex-shrink:0}
+.req-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* APPROVED RESULT */
+.creds-box{background:linear-gradient(135deg,rgba(34,197,94,0.08),rgba(14,165,233,0.08));border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:16px;margin-top:14px}
+.creds-title{font-size:13px;font-weight:700;color:var(--low);margin-bottom:10px}
+.creds-row{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface);border-radius:7px;border:1px solid var(--border);margin-bottom:6px}
+.creds-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em}
+.creds-val{font-family:var(--font-mono);font-size:14px;font-weight:700;letter-spacing:0.05em}
+.copy-btn{background:none;border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;color:var(--text2);font-family:var(--font-ui);transition:all var(--transition)}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+.creds-note{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5}
+
+/* EMPTY */
+.empty-state{text-align:center;padding:64px 20px}
+.empty-icon{font-size:56px;margin-bottom:16px}
+.empty-title{font-size:18px;font-weight:800;margin-bottom:8px}
+.empty-sub{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* DENIED */
+.denied-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);color:var(--critical);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;margin-top:10px}
+
+/* NOTIF BANNER */
+.notif-banner{background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(249,115,22,0.1));border:1px solid rgba(245,158,11,0.4);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px;margin-bottom:24px;animation:slideIn 0.4s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+.notif-icon{font-size:28px}
+.notif-title{font-size:14px;font-weight:700;color:var(--medium)}
+.notif-sub{font-size:12px;color:var(--text2);margin-top:2px}
+
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:24px;right:24px;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-size:13px;font-weight:500;opacity:0;transform:translateY(8px);transition:all 0.25s ease}
+.toast.toast-show{opacity:1;transform:translateY(0)}.toast-success{border-color:#22c55e}.toast-error{border-color:#ef4444}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <a class="back-btn" href="index.html">← Dashboard</a>
+    <div>
+      <div class="page-title">🔑 Access Requests</div>
+      <div class="page-sub">Review and approve new user access — Senior Admin only</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="live-badge"><span class="live-dot"></span>Live</div>
+    <button class="btn btn-ghost" onclick="toggleTheme()" id="themeBtn">🌙</button>
+  </div>
+</div>
+
+<div class="content">
+  <div id="notifBanner" style="display:none"></div>
+
+  <div class="req-stats">
+    <div class="req-stat" style="--sc:var(--medium)">
+      <div class="req-stat-num" id="statPending">—</div>
+      <div class="req-stat-label">⏳ Pending Requests</div>
+    </div>
+    <div class="req-stat" style="--sc:var(--low)">
+      <div class="req-stat-num" id="statApproved">—</div>
+      <div class="req-stat-label">✅ Approved This Session</div>
+    </div>
+    <div class="req-stat" style="--sc:var(--critical)">
+      <div class="req-stat-num" id="statDenied">—</div>
+      <div class="req-stat-label">❌ Denied This Session</div>
+    </div>
+  </div>
+
+  <div id="reqList" class="req-list">
+    <div class="empty-state">
+      <div class="empty-icon">⏳</div>
+      <div class="empty-title">Loading requests...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let approvedCount = 0;
+let deniedCount   = 0;
+let prevCount     = 0;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const t = document.documentElement.getAttribute('data-theme');
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '☀️' : '🌙';
+
+  // Auth: only Andiswa (senior admin) can access this page
+  const sess = SESSION.get();
+  if (!sess) return window.location.href = 'login.html';
+  if (!SESSION.isSenior()) {
+    document.querySelector('.content').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🔒</div>
+        <div class="empty-title">Access Restricted</div>
+        <div class="empty-sub">Only <strong>Andiswa</strong> (Senior Admin) can manage access requests.<br><a href="index.html" style="color:var(--accent)">← Back to Dashboard</a></div>
+      </div>`;
+    return;
+  }
+
+  const ok = initFirebase();
+  if (!ok) return;
+
+  // Live listener for pending requests
+  subscribeToAccessRequests(requests => {
+    // New request notification
+    if (requests.length > prevCount && prevCount > 0) {
+      showNotifBanner(requests.length);
+      // Browser notification
+      if (Notification.permission === 'granted') {
+        new Notification('HelpDesk Pro — New Access Request', {
+          body: 'Someone new is requesting access to HelpDesk Pro.',
+          icon: '🛠️'
+        });
+      }
+    }
+    prevCount = requests.length;
+    document.getElementById('statPending').textContent = requests.length;
+    renderRequests(requests);
+  });
+
+  // Request browser notification permission
+  if (Notification.permission === 'default') Notification.requestPermission();
+
+  updateSessionStats();
+});
+
+function showNotifBanner(count) {
+  const b = document.getElementById('notifBanner');
+  b.style.display = 'block';
+  b.innerHTML = `
+    <div class="notif-banner">
+      <div class="notif-icon">🔔</div>
+      <div>
+        <div class="notif-title">New access request received!</div>
+        <div class="notif-sub">You now have ${count} pending request${count !== 1 ? 's' : ''} waiting for your review.</div>
+      </div>
+    </div>`;
+  setTimeout(() => { b.style.display = 'none'; }, 6000);
+}
+
+function updateSessionStats() {
+  document.getElementById('statApproved').textContent = approvedCount;
+  document.getElementById('statDenied').textContent   = deniedCount;
+}
+
+function renderRequests(requests) {
+  const el = document.getElementById('reqList');
+  if (!requests.length) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">All clear!</div>
+        <div class="empty-sub">No pending access requests right now.<br>New requests will appear here in real-time.</div>
+      </div>`;
+    return;
+  }
+  el.innerHTML = requests.map(req => `
+    <div class="req-card" id="card-${req.id}">
+      <div class="req-card-top">
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <div class="req-avatar">${req.name[0].toUpperCase()}</div>
+          <div>
+            <div class="req-name">${escHtml(req.name)}</div>
+            <div class="req-email">${escHtml(req.email)}</div>
+            <div class="req-dept-chip">🏢 ${escHtml(req.department)}</div>
+          </div>
+        </div>
+        <div class="req-time">
+          <div style="font-weight:600;color:var(--medium)">⏳ Pending</div>
+          <div style="margin-top:4px">${timeAgo(req.created)}</div>
+          <div style="margin-top:2px">${new Date(req.created).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'})}</div>
+        </div>
+      </div>
+      <div class="req-actions" id="actions-${req.id}">
+        <button class="btn btn-approve" onclick="doApprove('${req.id}', ${JSON.stringify(req).replace(/"/g,'&quot;')})">
+          ✅ Approve & Generate Credentials
+        </button>
+        <button class="btn btn-deny" onclick="doDeny('${req.id}')">
+          ❌ Deny
+        </button>
+      </div>
+      <div id="result-${req.id}"></div>
+    </div>`).join('');
+}
+
+async function doApprove(reqId, req) {
+  const actionsEl = document.getElementById('actions-' + reqId);
+  actionsEl.innerHTML = `<button class="btn btn-approve" disabled><span class="spinner"></span>Approving...</button>`;
+
+  const result = await approveAccessRequest(reqId, req);
+  if (!result.ok) { showToast('Failed to approve request', 'error'); return; }
+
+  approvedCount++;
+  updateSessionStats();
+  showToast('✅ ' + req.name + ' approved! Credentials generated.', 'success');
+
+  actionsEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;color:var(--low);font-size:13px;font-weight:700">✅ Approved</span>`;
+
+  document.getElementById('result-' + reqId).innerHTML = `
+    <div class="creds-box">
+      <div class="creds-title">🎉 Account created — share these credentials with ${escHtml(req.name)}</div>
+      <div class="creds-row">
+        <span><div class="creds-label">Username</div><div class="creds-val">${result.username}</div></span>
+        <button class="copy-btn" onclick="copyText('${result.username}', this)">Copy</button>
+      </div>
+      <div class="creds-row">
+        <span><div class="creds-label">Password (one-time)</div><div class="creds-val">${result.password}</div></span>
+        <button class="copy-btn" onclick="copyText('${result.password}', this)">Copy</button>
+      </div>
+      <div class="creds-note">⚠️ Share these credentials securely (e.g. in person or via encrypted message). The user should change their password after first login.</div>
+    </div>`;
+}
+
+async function doDeny(reqId) {
+  if (!confirm('Are you sure you want to deny this request?')) return;
+  await denyAccessRequest(reqId);
+  deniedCount++;
+  updateSessionStats();
+  showToast('Request denied.', 'error');
+}
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copied!';
+    btn.style.color = 'var(--low)';
+    setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000);
+  });
+}
+</script>
+</body>
+</html>

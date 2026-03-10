@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>My Tickets — HelpDesk Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+<style>
+:root{--accent:#0ea5e9;--accent-dim:rgba(14,165,233,0.12);--low:#22c55e;--medium:#f59e0b;--high:#f97316;--critical:#ef4444;--open:#0ea5e9;--inprogress:#a855f7;--resolved:#22c55e;--font-ui:'Bricolage Grotesque',sans-serif;--font-mono:'Fira Code',monospace;--radius:10px;--transition:0.2s ease}
+[data-theme="light"]{--bg:#f0f4f8;--surface:#fff;--surface2:#f7f9fc;--border:#dde3ec;--text:#1a202c;--text2:#4a5568;--muted:#8a96a8;--shadow:0 1px 4px rgba(0,0,0,0.08),0 4px 16px rgba(0,0,0,0.05)}
+[data-theme="dark"]{--bg:#0c0e14;--surface:#13151f;--surface2:#1a1d2a;--border:#252836;--text:#e8eaf2;--text2:#9099b0;--muted:#555e72;--shadow:0 1px 4px rgba(0,0,0,0.4),0 4px 16px rgba(0,0,0,0.3)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-height:100vh}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:10}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.user-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0}
+.brand{font-size:16px;font-weight:800;letter-spacing:-0.02em}
+.brand span{color:var(--accent)}
+.user-chip{font-size:12px;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;font-family:var(--font-ui);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all var(--transition)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{filter:brightness(1.1)}
+.btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{color:var(--text);border-color:var(--accent)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.content{padding:24px;max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+
+/* STAT CARDS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.stat-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--sc,var(--accent))}
+.stat-num{font-size:28px;font-weight:800;letter-spacing:-0.03em;color:var(--sc,var(--accent));line-height:1}
+.stat-label{font-size:11px;color:var(--muted);margin-top:4px;font-weight:500}
+.stat-icon{font-size:20px;margin-bottom:8px}
+
+/* SECTION */
+.section-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.section-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.section-title{font-size:14px;font-weight:800}
+.section-sub{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* TICKET LIST */
+.ticket-item{padding:14px 20px;border-bottom:1px solid var(--border);transition:background var(--transition);display:flex;align-items:center;gap:14px}
+.ticket-item:last-child{border-bottom:none}
+.ticket-item:hover{background:var(--surface2)}
+.ticket-left{flex:1;min-width:0}
+.ticket-id{font-family:var(--font-mono);font-size:11px;color:var(--muted);font-weight:500}
+.ticket-title{font-size:14px;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ticket-meta{font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap}
+.ticket-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-open{background:rgba(14,165,233,0.12);color:var(--open)}
+.badge-inprogress{background:rgba(168,85,247,0.12);color:var(--inprogress)}
+.badge-resolved{background:rgba(34,197,94,0.12);color:var(--resolved)}
+.badge-low{background:rgba(34,197,94,0.12);color:var(--low)}
+.badge-medium{background:rgba(245,158,11,0.12);color:var(--medium)}
+.badge-high{background:rgba(249,115,22,0.12);color:var(--high)}
+.badge-critical{background:rgba(239,68,68,0.12);color:var(--critical)}
+.resolve-time{font-size:11px;color:var(--muted);font-family:var(--font-mono)}
+
+/* EMPTY */
+.empty-state{padding:48px 24px;text-align:center;color:var(--muted)}
+.empty-icon{font-size:40px;margin-bottom:12px}
+.empty-text{font-size:14px;font-weight:600;margin-bottom:6px;color:var(--text2)}
+
+/* AVG BAR */
+.avg-bar-wrap{padding:16px 20px}
+.avg-row{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+.avg-label{width:90px;font-size:12px;font-weight:600;color:var(--text2);flex-shrink:0}
+.avg-track{flex:1;height:10px;background:var(--surface2);border-radius:5px;overflow:hidden;border:1px solid var(--border)}
+.avg-fill{height:100%;border-radius:5px;transition:width 0.8s ease}
+.avg-val{width:80px;font-family:var(--font-mono);font-size:12px;font-weight:700;text-align:right;flex-shrink:0}
+
+/* DEPT TABLE */
+.dept-table{width:100%;border-collapse:collapse}
+.dept-table th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);padding:10px 20px;text-align:left;border-bottom:1px solid var(--border)}
+.dept-table td{padding:12px 20px;border-bottom:1px solid var(--border);font-size:13px}
+.dept-table tr:last-child td{border-bottom:none}
+.dept-table tr:hover td{background:var(--surface2)}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:50;display:none;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:540px;box-shadow:0 24px 80px rgba(0,0,0,0.4);animation:modalIn 0.25s ease;overflow:hidden;max-height:90vh;display:flex;flex-direction:column}
+@keyframes modalIn{from{opacity:0;transform:scale(0.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-title{font-size:15px;font-weight:800}
+.modal-close{background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all var(--transition)}
+.modal-close:hover{border-color:var(--critical);color:var(--critical)}
+.modal-body{padding:20px 24px;overflow-y:auto;flex:1}
+.modal-footer{padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px}
+.form-input,.form-select,.form-textarea{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:14px;outline:none;transition:border-color var(--transition)}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent)}
+.form-input::placeholder,.form-textarea::placeholder{color:var(--muted)}
+.form-textarea{min-height:90px;resize:vertical;line-height:1.5}
+
+/* SELF HELP (reused from index) */
+.sh-cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:8px}
+.sh-cat-card{padding:14px 8px;border-radius:10px;border:2px solid var(--border);background:var(--surface2);cursor:pointer;transition:all var(--transition);text-align:center}
+.sh-cat-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.sh-cat-card.selected{border-color:var(--accent);background:var(--accent-dim)}
+.sh-cat-icon{font-size:24px;margin-bottom:6px}
+.sh-cat-label{font-size:11px;font-weight:700;color:var(--text)}
+.sh-step{display:flex;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;align-items:flex-start;margin-bottom:8px;transition:all var(--transition)}
+.sh-step.done{background:rgba(34,197,94,0.06);border-color:rgba(34,197,94,0.3)}
+.sh-step-num{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;margin-top:1px}
+.sh-step.done .sh-step-num{background:var(--low)}
+.sh-step-text{font-size:12px;color:var(--text2);line-height:1.5;flex:1}
+.sh-step-check{width:16px;height:16px;border-radius:4px;border:2px solid var(--border);cursor:pointer;flex-shrink:0;appearance:none;margin-top:3px;transition:all var(--transition)}
+.sh-step-check:checked{background:var(--low);border-color:var(--low)}
+.sh-confirm-row{display:flex;align-items:center;gap:10px;padding:12px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:9px;margin:12px 0 4px}
+.sh-confirm-check{width:16px;height:16px;border-radius:4px;border:2px solid rgba(245,158,11,0.5);cursor:pointer;appearance:none;flex-shrink:0;transition:all var(--transition)}
+.sh-confirm-check:checked{background:var(--medium);border-color:var(--medium)}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-size:13px;font-weight:500;opacity:0;transform:translateY(8px);transition:all 0.25s ease}
+.toast.toast-show{opacity:1;transform:translateY(0)}
+
+/* SPINNER */
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin-sm{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite}
+
+@media(max-width:600px){.stats-row{grid-template-columns:1fr 1fr}.sh-cat-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="user-avatar" id="userAvatar" style="background:#0ea5e9">?</div>
+    <div>
+      <div class="brand">HelpDesk <span>Pro</span></div>
+      <div class="user-chip" id="userChip">Loading...</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button class="btn btn-primary" onclick="openNewTicket()">＋ New Ticket</button>
+    <button class="btn btn-ghost btn-sm" onclick="toggleTheme()" id="themeBtn">🌙</button>
+    <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign Out</button>
+  </div>
+</div>
+
+<div class="content">
+  <!-- STATS -->
+  <div class="stats-row" id="statsRow">
+    <div class="stat-card" style="--sc:var(--accent)"><div class="stat-icon">🎫</div><div class="stat-num" id="st-total">—</div><div class="stat-label">My Tickets</div></div>
+    <div class="stat-card" style="--sc:var(--open)"><div class="stat-icon">🔵</div><div class="stat-num" id="st-open">—</div><div class="stat-label">Open</div></div>
+    <div class="stat-card" style="--sc:var(--inprogress)"><div class="stat-icon">🟣</div><div class="stat-num" id="st-prog">—</div><div class="stat-label">In Progress</div></div>
+    <div class="stat-card" style="--sc:var(--resolved)"><div class="stat-icon">✅</div><div class="stat-num" id="st-res">—</div><div class="stat-label">Resolved</div></div>
+  </div>
+
+  <!-- AVG RESOLUTION TIME -->
+  <div class="section-card" id="avgCard" style="display:none">
+    <div class="section-head">
+      <div>
+        <div class="section-title">⏱️ Average Resolution Times</div>
+        <div class="section-sub">How long it typically takes to fix different ticket types for your department</div>
+      </div>
+    </div>
+    <div class="avg-bar-wrap" id="avgBars"></div>
+  </div>
+
+  <!-- MY TICKETS -->
+  <div class="section-card">
+    <div class="section-head">
+      <div>
+        <div class="section-title">🎫 My Tickets</div>
+        <div class="section-sub" id="myTicketsSub">Your submitted support requests</div>
+      </div>
+      <select class="btn btn-ghost btn-sm" id="myFilter" onchange="renderPortal()" style="padding:5px 10px;font-size:12px">
+        <option value="all">All</option>
+        <option value="open">Open</option>
+        <option value="inprogress">In Progress</option>
+        <option value="resolved">Resolved</option>
+      </select>
+    </div>
+    <div id="myTicketsList"><div style="padding:40px;text-align:center"><div class="spinner" style="margin:0 auto"></div></div></div>
+  </div>
+
+  <!-- DEPT COLLEAGUES' TICKETS -->
+  <div class="section-card" id="deptCard">
+    <div class="section-head">
+      <div>
+        <div class="section-title">👥 Department Tickets</div>
+        <div class="section-sub" id="deptSub">Other open tickets from your department</div>
+      </div>
+    </div>
+    <div id="deptTicketsList"><div style="padding:30px;text-align:center"><div class="spinner" style="margin:0 auto"></div></div></div>
+  </div>
+</div>
+
+<!-- NEW TICKET MODAL (with self-help flow) -->
+<div class="modal-overlay" id="newTicketModal">
+  <div class="modal">
+    <!-- Step 1: Self Help -->
+    <div id="sh-step1">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">🔧 Before You Submit</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Try these quick fixes first — most issues solve in minutes!</div>
+        </div>
+        <button class="modal-close" onclick="closeNewTicket()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">What type of problem?</div>
+        <div class="sh-cat-grid" id="portalCatGrid"></div>
+      </div>
+    </div>
+    <!-- Step 2: Troubleshoot steps -->
+    <div id="sh-step2" style="display:none;flex-direction:column;flex:1;min-height:0">
+      <div class="modal-header" style="flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="btn btn-ghost btn-sm" onclick="shPortalBack()">← Back</button>
+          <div class="modal-title" id="shPortalTitle"></div>
+        </div>
+        <button class="modal-close" onclick="closeNewTicket()">✕</button>
+      </div>
+      <div class="modal-body" style="flex:1;overflow-y:auto">
+        <div id="shPortalSteps"></div>
+      </div>
+      <div style="padding:14px 24px;border-top:1px solid var(--border);flex-shrink:0">
+        <div class="sh-confirm-row">
+          <input type="checkbox" class="sh-confirm-check" id="portalConfirm" onchange="portalCheckConfirm()">
+          <label style="font-size:12px;font-weight:600;color:var(--medium);cursor:pointer" for="portalConfirm">
+            I tried all steps above and the issue is still not resolved
+          </label>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+          <span style="font-size:12px;color:var(--muted)">✅ Issue solved? No ticket needed!</span>
+          <div id="portalLogBtn" style="opacity:0.4;pointer-events:none;transition:opacity var(--transition)">
+            <button class="btn btn-primary btn-sm" onclick="shPortalProceed()">📋 Log a Ticket →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Step 3: Ticket form -->
+    <div id="sh-step3" style="display:none">
+      <div class="modal-header">
+        <div class="modal-title">🎫 Submit a Ticket</div>
+        <button class="modal-close" onclick="closeNewTicket()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="ticketFormAlert" style="display:none;margin-bottom:12px"></div>
+        <div class="form-group">
+          <label class="form-label">Issue Title *</label>
+          <input class="form-input" id="nt-title" placeholder="Brief description...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-textarea" id="nt-desc" placeholder="More detail about the issue..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-select" id="nt-priority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeNewTicket()">Cancel</button>
+        <button class="btn btn-primary" id="submitTicketBtn" onclick="submitPortalTicket()">Submit Ticket</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── SELF HELP DATA ─────────────────────────────────────────────
+const SH_CATS = [
+  { id:'software', label:'Software', icon:'💻', color:'#0ea5e9', admin:'Andiswa',
+    steps:['Restart the application completely and reopen it.','Restart your computer and try again after it fully boots.','Check for pending Windows or software updates and install them.','Run the application as Administrator (right-click the icon).','Check disk space — make sure you have at least 2GB free.','Uninstall and reinstall the application if the problem persists.']},
+  { id:'hardware', label:'Hardware', icon:'🖥️', color:'#a855f7', admin:'Relebohile',
+    steps:['Check all cables and connections — unplug and firmly replug each one.','Restart your computer — many hardware glitches clear with a reboot.','Try a different USB port or cable if the device is not recognised.','Open Device Manager and check for yellow warning icons.','Test the device on another computer to confirm if it is faulty.','Check the manufacturer website for updated drivers.']},
+  { id:'network', label:'Network / WiFi', icon:'🌐', color:'#22c55e', admin:'Lwando',
+    steps:['Turn WiFi off and back on from your taskbar.','Forget the WiFi network and reconnect via Settings.','Restart your router — unplug for 30 seconds then plug back in.','Run Windows Network Troubleshooter — Settings > Troubleshoot > Internet.','Check if other devices connect to the same network.','Open Command Prompt and type: ipconfig /flushdns']},
+  { id:'password', label:'Password', icon:'🔑', color:'#f59e0b', admin:'Andiswa',
+    steps:['Try the Forgot Password link on the login page.','Check Caps Lock — passwords are case-sensitive.','Try a different browser or clear cache and cookies.','Confirm you are using the correct email for that account.','Wait 15 minutes if locked out due to failed attempts.','Check with a colleague if they have the same access issue.']},
+  { id:'printer', label:'Printer', icon:'🖨️', color:'#f97316', admin:'Relebohile',
+    steps:['Check the printer is on and the power light is solid.','Check all cables or confirm the printer is on the same WiFi.','Clear the print queue — Settings > Printers > Open queue > Cancel all.','Restart both the printer and your computer.','Remove the printer and re-add it in Settings > Bluetooth and devices.','Check ink or toner levels and ensure paper is loaded correctly.']},
+  { id:'email', label:'Email', icon:'📧', color:'#06b6d4', admin:'Andiswa',
+    steps:['Check your internet connection by opening any website.','Log out of your email account and log back in.','Clear browser cache and cookies, then try again.','Try accessing email via webmail (browser) if you use a desktop app.','Check your spam or junk folder for missing emails.','Check if your mailbox is full — delete old emails or empty trash.']},
+];
+
+let portalSelected = null;
+let myTickets      = [];
+let allDeptTickets = [];
+let session        = null;
+
+// ── INIT ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('themeBtn').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+  const fbOk = initFirebase();
+  if (!fbOk) { window.location.href = 'login.html'; return; }
+  session = getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+  if (session.role === 'admin') { window.location.href = 'index.html'; return; }
+
+  // Set user info in topbar
+  const initials = session.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('userAvatar').textContent  = initials;
+  document.getElementById('userAvatar').style.background = session.color || '#0ea5e9';
+  document.getElementById('userChip').textContent    = session.name + ' · ' + session.department;
+
+  // Render self-help categories
+  document.getElementById('portalCatGrid').innerHTML = SH_CATS.map(c =>
+    `<div class="sh-cat-card" onclick="shPortalSelect('${c.id}')">
+       <div class="sh-cat-icon">${c.icon}</div>
+       <div class="sh-cat-label">${c.label}</div>
+     </div>`
+  ).join('');
+
+  // Subscribe to all tickets (filter client-side)
+  subscribeToTickets(tickets => {
+    myTickets      = tickets.filter(t => t.submitterEmail === session.email || t.submitter === session.name);
+    allDeptTickets = tickets.filter(t => t.department === session.department && t.submitterEmail !== session.email && t.status !== 'resolved');
+    renderPortal();
+  });
+});
+
+// ── RENDER ────────────────────────────────────────────────────
+function renderPortal() {
+  if (!session) return;
+  const filter = document.getElementById('myFilter').value;
+  const filtered = filter === 'all' ? myTickets : myTickets.filter(t => t.status === filter);
+
+  // Stats
+  document.getElementById('st-total').textContent = myTickets.length;
+  document.getElementById('st-open').textContent  = myTickets.filter(t=>t.status==='open').length;
+  document.getElementById('st-prog').textContent  = myTickets.filter(t=>t.status==='inprogress').length;
+  document.getElementById('st-res').textContent   = myTickets.filter(t=>t.status==='resolved').length;
+
+  // Avg resolution times per category
+  const resolved = myTickets.filter(t => t.status === 'resolved' && t.resolvedAt);
+  if (resolved.length > 0) {
+    document.getElementById('avgCard').style.display = 'block';
+    const byAdmin = {};
+    resolved.forEach(t => {
+      if (!byAdmin[t.assignee]) byAdmin[t.assignee] = [];
+      byAdmin[t.assignee].push(new Date(t.resolvedAt) - new Date(t.created));
+    });
+    const maxMs = Math.max(...Object.values(byAdmin).map(arr => arr.reduce((a,b)=>a+b,0)/arr.length), 1);
+    document.getElementById('avgBars').innerHTML = Object.entries(byAdmin).map(([admin, times]) => {
+      const avg = times.reduce((a,b)=>a+b,0) / times.length;
+      const a   = ADMINS.find(x => x.name === admin);
+      const pct = Math.round((avg / maxMs) * 100);
+      return `<div class="avg-row">
+        <div class="avg-label">${a ? a.emoji : '🧑'} ${admin}</div>
+        <div class="avg-track"><div class="avg-fill" style="width:${pct}%;background:${a?a.color:'var(--accent)'}"></div></div>
+        <div class="avg-val" style="color:${a?a.color:'var(--accent)'}">${formatDuration(avg)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // My tickets list
+  document.getElementById('myTicketsSub').textContent = `${filtered.length} ticket${filtered.length!==1?'s':''} · ${myTickets.filter(t=>t.status==='resolved').length} resolved`;
+  if (filtered.length === 0) {
+    document.getElementById('myTicketsList').innerHTML = `<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-text">${filter==='all'?'No tickets yet':'No '+filter+' tickets'}</div><div style="font-size:12px">Click "+ New Ticket" to submit one</div></div>`;
+  } else {
+    document.getElementById('myTicketsList').innerHTML = filtered.map(t => ticketRow(t, true)).join('');
+  }
+
+  // Dept tickets
+  document.getElementById('deptSub').textContent = `${allDeptTickets.length} open ticket${allDeptTickets.length!==1?'s':''} from ${session.department}`;
+  if (allDeptTickets.length === 0) {
+    document.getElementById('deptTicketsList').innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">No open department tickets</div><div style="font-size:12px">Your colleagues are all clear!</div></div>`;
+  } else {
+    document.getElementById('deptTicketsList').innerHTML = allDeptTickets.map(t => ticketRow(t, false)).join('');
+  }
+}
+
+function ticketRow(t, showResolveTime) {
+  const admin = ADMINS.find(a => a.name === t.assignee);
+  const resolveTime = t.resolvedAt
+    ? `<span class="resolve-time">⏱ Fixed in ${formatDuration(new Date(t.resolvedAt)-new Date(t.created))}</span>`
+    : '';
+  const priorityBadge = `<span class="badge badge-${t.priority}">${t.priority}</span>`;
+  const statusBadge   = `<span class="badge badge-${t.status}">${t.status==='inprogress'?'In Progress':t.status.charAt(0).toUpperCase()+t.status.slice(1)}</span>`;
+  return `<div class="ticket-item">
+    <div class="ticket-left">
+      <div class="ticket-id">${t.id}</div>
+      <div class="ticket-title">${escHtml(t.title)}</div>
+      <div class="ticket-meta">
+        <span>📅 ${new Date(t.created).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'})}</span>
+        ${admin ? `<span style="color:${admin.color}">${admin.emoji} ${admin.name}</span>` : ''}
+        ${t.submitter && !showResolveTime ? `<span>👤 ${escHtml(t.submitter)}</span>` : ''}
+      </div>
+    </div>
+    <div class="ticket-right">
+      ${statusBadge}
+      ${priorityBadge}
+      ${showResolveTime ? resolveTime : ''}
+    </div>
+  </div>`;
+}
+
+// ── NEW TICKET FLOW ───────────────────────────────────────────
+function openNewTicket() {
+  portalSelected = null;
+  document.getElementById('sh-step1').style.display = 'block';
+  document.getElementById('sh-step2').style.display = 'none';
+  document.getElementById('sh-step3').style.display = 'none';
+  document.getElementById('newTicketModal').classList.add('open');
+}
+function closeNewTicket() {
+  document.getElementById('newTicketModal').classList.remove('open');
+  portalSelected = null;
+}
+
+function shPortalSelect(id) {
+  portalSelected = SH_CATS.find(c => c.id === id);
+  if (!portalSelected) return;
+  document.getElementById('sh-step1').style.display = 'none';
+  document.getElementById('sh-step2').style.display  = 'flex';
+  document.getElementById('sh-step2').style.flexDirection = 'column';
+  document.getElementById('shPortalTitle').innerHTML = `<span style="font-size:18px">${portalSelected.icon}</span> ${portalSelected.label}`;
+  document.getElementById('shPortalSteps').innerHTML = portalSelected.steps.map((s,i) => `
+    <label class="sh-step" id="psh-${i}">
+      <div class="sh-step-num" id="psh-num-${i}">${i+1}</div>
+      <div class="sh-step-text">${s}</div>
+      <input type="checkbox" class="sh-step-check" onchange="pshCheck(${i},this)">
+    </label>`).join('');
+  document.getElementById('portalConfirm').checked = false;
+  document.getElementById('portalLogBtn').style.opacity = '0.4';
+  document.getElementById('portalLogBtn').style.pointerEvents = 'none';
+}
+
+function pshCheck(i, el) {
+  const step = document.getElementById('psh-' + i);
+  const num  = document.getElementById('psh-num-' + i);
+  step.classList.toggle('done', el.checked);
+  num.textContent = el.checked ? '✓' : i+1;
+  num.style.background = el.checked ? '#22c55e' : '';
+}
+
+function portalCheckConfirm() {
+  const ok  = document.getElementById('portalConfirm').checked;
+  const btn = document.getElementById('portalLogBtn');
+  btn.style.opacity       = ok ? '1' : '0.4';
+  btn.style.pointerEvents = ok ? 'auto' : 'none';
+}
+
+function shPortalBack() {
+  document.getElementById('sh-step2').style.display = 'none';
+  document.getElementById('sh-step1').style.display = 'block';
+  portalSelected = null;
+}
+
+function shPortalProceed() {
+  const saved = portalSelected;
+  document.getElementById('sh-step2').style.display = 'none';
+  document.getElementById('sh-step3').style.display = 'block';
+  if (saved) {
+    document.getElementById('nt-title').value = saved.label + ' issue — ';
+  }
+  document.getElementById('ticketFormAlert').style.display = 'none';
+  setTimeout(() => {
+    const t = document.getElementById('nt-title');
+    t.focus(); t.setSelectionRange(t.value.length, t.value.length);
+  }, 100);
+}
+
+async function submitPortalTicket() {
+  const title    = document.getElementById('nt-title').value.trim();
+  const desc     = document.getElementById('nt-desc').value.trim();
+  const priority = document.getElementById('nt-priority').value;
+  const alertEl  = document.getElementById('ticketFormAlert');
+  if (!title) {
+    alertEl.style.display = 'flex';
+    alertEl.className = 'alert alert-error';
+    alertEl.innerHTML = '❌ Please enter an issue title.';
+    return;
+  }
+  const btn = document.getElementById('submitTicketBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin-sm"></span> Submitting...';
+
+  // Auto-assign admin based on category
+  const cat   = portalSelected || SH_CATS[0];
+  const admin = ADMINS.find(a => a.name === cat.admin) || ADMINS[0];
+
+  const ticket = await createTicket({
+    title, desc, priority,
+    submitter:      session.name,
+    submitterEmail: session.email,
+    department:     session.department,
+    category:       cat.label,
+    assignee:       admin.name,
+  });
+
+  if (ticket) {
+    closeNewTicket();
+    showToast('Ticket ' + ticket.id + ' submitted to ' + admin.name + '!', 'success');
+  }
+  btn.disabled = false; btn.innerHTML = 'Submit Ticket';
+}
+
+function doLogout() { clearSession(); window.location.href = 'login.html'; }
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeNewTicket(); });
+</script>
+</body>
+</html>
