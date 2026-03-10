@@ -68,6 +68,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 .live-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:var(--low);font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px}
 .live-dot{width:7px;height:7px;border-radius:50%;background:var(--low);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes reqPulse{0%,100%{background:transparent}50%{background:rgba(245,158,11,0.12)}}
 .btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:7px;font-family:var(--font-ui);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all var(--transition);text-decoration:none}
 .btn-primary{background:var(--accent);color:#fff;box-shadow:0 0 16px var(--accent-glow)}.btn-primary:hover{filter:brightness(1.1);transform:translateY(-1px)}
 .btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{color:var(--text);border-color:var(--accent)}
@@ -273,6 +274,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 
     <!-- Community -->
     <div class="nav-section" style="padding-top:4px">
+      <a class="nav-item" href="access-requests.html" id="accessReqLink" style="display:none">
+        <span class="nav-item-left"><span class="nav-item-icon">🔑</span> Access Requests</span>
+        <span class="nav-badge" id="accessReqBadge" style="display:none;background:var(--medium)">0</span>
+      </a>
       <a class="nav-item" href="community.html">
         <span class="nav-item-left"><span class="nav-item-icon">💬</span> Community</span>
         <span class="nav-badge" id="nav-community" style="background:var(--inprogress)">New</span>
@@ -307,6 +312,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
           <span>🔍</span>
           <input type="text" id="searchInput" placeholder="Search tickets..." oninput="renderList()">
         </div>
+        <div id="notifBell" style="display:none;position:relative">
+          <button class="btn btn-ghost" onclick="openNotifications()" style="position:relative;padding:7px 12px">
+            🔔<span id="notifCount" style="position:absolute;top:-4px;right:-4px;background:var(--critical);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:10px;min-width:16px;text-align:center;display:none">0</span>
+          </button>
+        </div>
+        <button class="btn btn-ghost" onclick="doAdminLogout()" style="font-size:12px">Sign Out</button>
         <button class="btn btn-primary" onclick="openNewModal()">＋ New Ticket</button>
       </div>
     </div>
@@ -439,6 +450,48 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
   </div>
 </div>
 
+<!-- NOTIFICATIONS / ACCESS REQUESTS MODAL -->
+<div class="modal-overlay" id="notifModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">🔔 Access Requests</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Review and approve new user access</div>
+      </div>
+      <button class="modal-close" onclick="closeNotifications()">✕</button>
+    </div>
+    <div class="modal-body" id="notifList">
+      <div style="text-align:center;padding:32px;color:var(--muted)">Loading requests...</div>
+    </div>
+  </div>
+</div>
+
+<!-- APPROVE MODAL -->
+<div class="modal-overlay" id="approveModal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">✅ Approve Access</div>
+      <button class="modal-close" onclick="document.getElementById('approveModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="approveInfo" style="padding:14px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);margin-bottom:16px;font-size:13px;line-height:1.7"></div>
+      <div class="form-group">
+        <label class="form-label">Generated Username</label>
+        <input class="form-input" id="approveUsername" style="font-family:var(--font-mono)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Generated Password</label>
+        <input class="form-input" id="approvePassword" style="font-family:var(--font-mono)">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Share these credentials directly with the user via secure message or in person.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('approveModal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="approveConfirmBtn" onclick="confirmApprove()">✅ Approve &amp; Create Account</button>
+    </div>
+  </div>
+</div>
+
 <!-- SETTINGS MODAL -->
 <div class="modal-overlay" id="settingsModal">
   <div class="modal">
@@ -468,6 +521,32 @@ const STATUS_ORDER   = { open:0,inprogress:1,resolved:2 };
 
 // ---- INIT ----
 document.addEventListener('DOMContentLoaded', function() {
+  // ── AUTH GUARD ──
+  if (!requireAdmin()) return;
+  const adminSession = getSession();
+  // Show notification bell only for senior admin
+  if (adminSession && adminSession.name === 'Andiswa') {
+    document.getElementById('notifBell').style.display = 'block';
+    subscribeToNotifications(notifs => {
+      const count = notifs.length;
+      const badge = document.getElementById('notifCount');
+      badge.textContent = count;
+      badge.style.display = count > 0 ? 'block' : 'none';
+    });
+  }
+
+  // ── AUTH GUARD — admins only ──
+  const sess = SESSION.get();
+  if (!sess) return window.location.href = 'login.html';
+  if (sess.role !== 'admin') return window.location.href = 'portal.html';
+
+  // Show logged-in admin name in topbar
+  const topUser = document.getElementById('topbarUser');
+  if (topUser) {
+    const admin = ADMINS.find(a => a.name === sess.name);
+    topUser.innerHTML = `<span style="width:26px;height:26px;border-radius:50%;background:${admin?.color||'var(--accent)'};display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff">${sess.avatar||sess.name[0]}</span> ${sess.name}`;
+  }
+
   // Theme
   const theme = document.documentElement.getAttribute('data-theme');
   const icon  = document.getElementById('themeIcon');
@@ -489,6 +568,20 @@ document.addEventListener('DOMContentLoaded', function() {
   const fbOk = initFirebase();
   if (fbOk) {
     document.getElementById('liveBadge').style.display = 'flex';
+    // Access requests badge — only for Andiswa
+    if (SESSION.isSenior()) {
+      const accessLink = document.getElementById('accessReqLink');
+      if (accessLink) accessLink.style.display = 'flex';
+      subscribeToAccessRequests(reqs => {
+        const badge = document.getElementById('accessReqBadge');
+        if (badge) {
+          badge.textContent = reqs.length;
+          badge.style.display = reqs.length ? 'inline-flex' : 'none';
+          const link = document.getElementById('accessReqLink');
+          if (link) link.style.animation = reqs.length > 0 ? 'reqPulse 2s ease infinite' : '';
+        }
+      });
+    }
     seedDemoData().then(() => startRealtime());
   } else {
     document.getElementById('topbar-sub').textContent = '⚠️ Firebase not configured — see app.js';
@@ -943,6 +1036,90 @@ function shProceedToTicket() {
   }, 150);
 }
 
+// ---- AUTH ----
+function logout() {
+  SESSION.clear();
+  window.location.href = 'login.html';
+}
+
+// ---- NOTIFICATIONS & ACCESS REQUESTS (senior admin) ----
+let pendingReqsUnsub = null;
+let currentApproveReq = null;
+
+function openNotifications() {
+  document.getElementById('notifModal').classList.add('open');
+  document.getElementById('notifList').innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">Loading...</div>';
+  if (pendingReqsUnsub) pendingReqsUnsub();
+  pendingReqsUnsub = subscribeToPendingRequests(reqs => {
+    if (reqs.length === 0) {
+      document.getElementById('notifList').innerHTML = `
+        <div style="text-align:center;padding:40px;color:var(--muted)">
+          <div style="font-size:32px;margin-bottom:12px">✅</div>
+          <div style="font-weight:700;color:var(--text2)">No pending requests</div>
+          <div style="font-size:12px;margin-top:4px">All access requests have been reviewed.</div>
+        </div>`;
+      return;
+    }
+    document.getElementById('notifList').innerHTML = reqs.map(r => `
+      <div style="padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:14px">
+        <div>
+          <div style="font-weight:700;font-size:14px">${escHtml(r.name)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px">📧 ${escHtml(r.email)} &nbsp;·&nbsp; 🏢 ${escHtml(r.department)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">⏰ ${timeAgo(r.created)}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <button class="btn btn-ghost" style="font-size:12px;padding:5px 10px;border-color:var(--critical);color:var(--critical)"
+                  onclick="rejectReq('${r.id}')">✕ Reject</button>
+          <button class="btn btn-primary" style="font-size:12px;padding:5px 12px"
+                  onclick="openApprove(${JSON.stringify(r).replace(/"/g,'&quot;')})">✅ Approve</button>
+        </div>
+      </div>`).join('');
+  });
+}
+
+function closeNotifications() {
+  document.getElementById('notifModal').classList.remove('open');
+  if (pendingReqsUnsub) { pendingReqsUnsub(); pendingReqsUnsub = null; }
+}
+
+function openApprove(req) {
+  currentApproveReq = req;
+  const uname = generateUsername(req.name, req.department);
+  const pwd   = generatePassword();
+  document.getElementById('approveInfo').innerHTML =
+    `<strong>${escHtml(req.name)}</strong> from <strong>${escHtml(req.department)}</strong><br>
+     📧 ${escHtml(req.email)}`;
+  document.getElementById('approveUsername').value = uname;
+  document.getElementById('approvePassword').value = pwd;
+  document.getElementById('approveModal').classList.add('open');
+}
+
+async function confirmApprove() {
+  if (!currentApproveReq) return;
+  const uname = document.getElementById('approveUsername').value.trim();
+  const pwd   = document.getElementById('approvePassword').value.trim();
+  if (!uname || !pwd) { showToast('Username and password required.', 'error'); return; }
+  const btn = document.getElementById('approveConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  const r = await approveAccess(currentApproveReq.id, uname, pwd);
+  btn.disabled = false; btn.innerHTML = '✅ Approve & Create Account';
+  if (r.ok) {
+    document.getElementById('approveModal').classList.remove('open');
+    showToast(`Account created: ${uname} / ${pwd}`, 'success');
+    currentApproveReq = null;
+  } else {
+    showToast(r.msg || 'Error approving request.', 'error');
+  }
+}
+
+async function rejectReq(reqId) {
+  if (!confirm('Reject this access request?')) return;
+  await rejectAccess(reqId);
+  showToast('Request rejected.', 'error');
+}
+
+function doAdminLogout() { clearSession(); window.location.href = 'login.html'; }
+
 // ---- COLLAPSIBLE NAV DROPDOWNS ----
 function toggleNavGroup(btn) {
   const isOpen = btn.classList.contains('open');
@@ -955,7 +1132,7 @@ function toggleNavGroup(btn) {
   document.getElementById(id).addEventListener('click',e=>{ if(e.target.id===id) document.getElementById(id).classList.remove('open'); });
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){closeSelfHelp();closeNewModal();closeSettings();}
+  if(e.key==='Escape'){closeSelfHelp();closeNewModal();closeSettings();closeNotifications();document.getElementById('approveModal').classList.remove('open');}
   if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();openNewModal();}
 });
 </script>
