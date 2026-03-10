@@ -382,3 +382,336 @@ function showToast(msg, type='success') {
   setTimeout(()=>t.classList.add('toast-show'),10);
   setTimeout(()=>{t.classList.remove('toast-show');setTimeout(()=>t.remove(),300);},3200);
 }
+
+// ============================================================
+//  AUTH — Users, Sessions, Access Requests
+//  Senior Admin: Andiswa
+// ============================================================
+const SENIOR_ADMIN = 'Andiswa';
+
+// Simple hash — good enough for a small internal tool
+async function hashPassword(password) {
+  const msgBuffer = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Generate a username from name e.g. "John Mokoena" → "john.mokoena"
+function generateUsername(name) {
+  return name.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z.]/g, '');
+}
+
+// Generate a random password
+function generatePassword(len = 10) {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';
+  return Array.from({length: len}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+// ── SESSION ──────────────────────────────────────────────────
+const SESSION = {
+  get()       { try { return JSON.parse(sessionStorage.getItem('hd_session') || 'null'); } catch { return null; } },
+  set(user)   { sessionStorage.setItem('hd_session', JSON.stringify(user)); },
+  clear()     { sessionStorage.removeItem('hd_session'); },
+  isAdmin()   { const s = SESSION.get(); return s && ADMINS.some(a => a.name === s.name); },
+  isSenior()  { const s = SESSION.get(); return s && s.name === SENIOR_ADMIN; },
+};
+
+// ── LOGIN ─────────────────────────────────────────────────────
+async function loginUser(username, password) {
+  if (!isFirebaseReady()) return { ok: false, msg: 'Firebase not connected' };
+
+  // Check if logging in as an admin (username matches admin name lowercased)
+  const adminMatch = ADMINS.find(a => a.name.toLowerCase() === username.toLowerCase());
+  if (adminMatch) {
+    // Admin passwords stored in Firestore users collection
+    const snap = await _db.collection('users').doc(username.toLowerCase()).get();
+    if (!snap.exists) return { ok: false, msg: 'Account not found' };
+    const data = snap.data();
+    const hash = await hashPassword(password);
+    if (data.passwordHash !== hash) return { ok: false, msg: 'Incorrect password' };
+    SESSION.set({ name: adminMatch.name, username: username.toLowerCase(), role: 'admin', department: adminMatch.department, email: data.email || '', color: adminMatch.color, avatar: adminMatch.avatar, emoji: adminMatch.emoji });
+    return { ok: true, role: 'admin' };
+  }
+
+  // Regular user login
+  const snap = await _db.collection('users').doc(username.toLowerCase()).get();
+  if (!snap.exists) return { ok: false, msg: 'Account not found' };
+  const data = snap.data();
+  if (!data.approved) return { ok: false, msg: 'Your account is pending approval' };
+  const hash = await hashPassword(password);
+  if (data.passwordHash !== hash) return { ok: false, msg: 'Incorrect password' };
+  SESSION.set({ name: data.name, username: username.toLowerCase(), role: 'user', department: data.department, email: data.email, color: '#64748b', avatar: data.name[0].toUpperCase() });
+  return { ok: true, role: 'user' };
+}
+
+// ── SETUP ADMIN ACCOUNTS (run once) ──────────────────────────
+async function ensureAdminAccounts() {
+  if (!isFirebaseReady()) return;
+  for (const admin of ADMINS) {
+    const key = admin.name.toLowerCase();
+    const doc = await _db.collection('users').doc(key).get();
+    if (!doc.exists) {
+      const hash = await hashPassword('Admin@2025!');
+      await _db.collection('users').doc(key).set({
+        name: admin.name, username: key, email: key + '@helpdesk.com',
+        department: admin.department, role: 'admin',
+        passwordHash: hash, approved: true,
+        created: new Date().toISOString(),
+      });
+      console.log('✅ Admin account created:', admin.name, '/ password: Admin@2025!');
+    }
+  }
+}
+
+// ── ACCESS REQUESTS ───────────────────────────────────────────
+async function submitAccessRequest(data) {
+  if (!isFirebaseReady()) return { ok: false, msg: 'Firebase not connected' };
+  // Check if email already has an account or pending request
+  const existing = await _db.collection('users').where('email', '==', data.email).get();
+  if (!existing.empty) return { ok: false, msg: 'An account with this email already exists' };
+  const pending = await _db.collection('accessRequests').where('email', '==', data.email).where('status', '==', 'pending').get();
+  if (!pending.empty) return { ok: false, msg: 'A request with this email is already pending' };
+
+  const reqId = 'REQ-' + Date.now();
+  await _db.collection('accessRequests').doc(reqId).set({
+    id: reqId, name: data.name, email: data.email, department: data.department,
+    status: 'pending', created: new Date().toISOString(),
+  });
+  return { ok: true, id: reqId };
+}
+
+async function getAccessRequests() {
+  if (!isFirebaseReady()) return [];
+  const snap = await _db.collection('accessRequests').where('status', '==', 'pending').orderBy('created', 'desc').get();
+  return snap.docs.map(d => d.data());
+}
+
+function subscribeToAccessRequests(callback) {
+  if (!isFirebaseReady()) return () => {};
+  return _db.collection('accessRequests').where('status', '==', 'pending')
+    .orderBy('created', 'desc')
+    .onSnapshot(snap => callback(snap.docs.map(d => d.data())), err => console.error(err));
+}
+
+async function approveAccessRequest(reqId, req) {
+  if (!isFirebaseReady()) return { ok: false };
+  const username = generateUsername(req.name);
+  const password = generatePassword();
+  const hash = await hashPassword(password);
+
+  // Create user account
+  await _db.collection('users').doc(username).set({
+    name: req.name, username, email: req.email, department: req.department,
+    role: 'user', passwordHash: hash, approved: true,
+    created: new Date().toISOString(),
+  });
+  // Mark request approved
+  await _db.collection('accessRequests').doc(reqId).update({ status: 'approved', approvedAt: new Date().toISOString(), username, generatedPassword: password });
+  return { ok: true, username, password };
+}
+
+async function denyAccessRequest(reqId) {
+  if (!isFirebaseReady()) return;
+  await _db.collection('accessRequests').doc(reqId).update({ status: 'denied', deniedAt: new Date().toISOString() });
+}
+
+// ── USER TICKET QUERIES ───────────────────────────────────────
+function subscribeToUserTickets(email, department, callback) {
+  if (!isFirebaseReady()) return () => {};
+  // Get tickets by this user's email OR same department
+  return _db.collection('tickets')
+    .orderBy('created', 'desc')
+    .onSnapshot(snap => {
+      const all = snap.docs.map(d => d.data());
+      const filtered = all.filter(t =>
+        t.submitterEmail === email ||
+        (t.department || t.category || '') === department
+      );
+      callback(filtered);
+    }, err => console.error(err));
+}
+
+// ============================================================
+//  AUTH SYSTEM
+//  Users stored in Firestore 'users' collection
+//  Session stored in sessionStorage (clears on tab close)
+//  Roles: 'admin' | 'user'
+//  Senior admin: Andiswa (only one who approves requests)
+// ============================================================
+
+const SENIOR_ADMIN = 'Andiswa';
+const SESSION_KEY  = 'hd_session';
+
+// ── Session helpers ──────────────────────────────────────────
+function getSession() {
+  try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); }
+  catch { return null; }
+}
+function setSession(user) {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+}
+function clearSession() {
+  sessionStorage.removeItem(SESSION_KEY);
+}
+function isLoggedIn()  { return !!getSession(); }
+function isAdmin()     { const s = getSession(); return s && s.role === 'admin'; }
+function isSeniorAdmin(){ const s = getSession(); return s && s.role === 'admin' && s.name === SENIOR_ADMIN; }
+
+// ── Auth guards — call at top of each page ───────────────────
+function requireAdmin() {
+  if (!isAdmin()) { window.location.href = 'login.html'; return false; }
+  return true;
+}
+function requireLogin() {
+  if (!isLoggedIn()) { window.location.href = 'login.html'; return false; }
+  return true;
+}
+function redirectIfLoggedIn() {
+  const s = getSession();
+  if (!s) return;
+  if (s.role === 'admin') window.location.href = 'index.html';
+  else window.location.href = 'portal.html';
+}
+
+// ── Login ────────────────────────────────────────────────────
+async function loginUser(username, password) {
+  if (!isFirebaseReady()) return { ok: false, msg: 'Firebase not connected.' };
+  const snap = await _db.collection('users')
+    .where('username', '==', username.trim())
+    .where('status', '==', 'active')
+    .limit(1).get();
+  if (snap.empty) return { ok: false, msg: 'Username not found or account not active.' };
+  const user = snap.docs[0].data();
+  if (user.password !== btoa(password)) return { ok: false, msg: 'Incorrect password.' };
+  const session = {
+    uid: snap.docs[0].id, name: user.name, username: user.username,
+    role: user.role, department: user.department, email: user.email, color: user.color || '#0ea5e9'
+  };
+  setSession(session);
+  // Update last login
+  await _db.collection('users').doc(snap.docs[0].id).update({ lastLogin: new Date().toISOString() });
+  return { ok: true, user: session };
+}
+
+// ── Request access ───────────────────────────────────────────
+async function requestAccess(name, email, department) {
+  if (!isFirebaseReady()) return { ok: false, msg: 'Firebase not connected.' };
+  // Check no duplicate email pending/active
+  const dup = await _db.collection('users').where('email', '==', email.trim().toLowerCase()).limit(1).get();
+  if (!dup.empty) return { ok: false, msg: 'An account with this email already exists or is pending.' };
+  const reqId = 'REQ-' + Date.now();
+  await _db.collection('accessRequests').doc(reqId).set({
+    id: reqId, name: name.trim(), email: email.trim().toLowerCase(),
+    department: department.trim(), status: 'pending',
+    created: new Date().toISOString(), reviewedBy: null, reviewedAt: null,
+  });
+  // Notify senior admin via Firestore notification
+  await _db.collection('notifications').add({
+    to: SENIOR_ADMIN, type: 'access_request', reqId,
+    message: `${name} (${department}) is requesting access.`,
+    read: false, created: new Date().toISOString(),
+  });
+  return { ok: true };
+}
+
+// ── Approve / Reject access (senior admin only) ───────────────
+async function approveAccess(reqId, generatedUsername, generatedPassword) {
+  if (!isFirebaseReady()) return { ok: false };
+  const reqRef  = _db.collection('accessRequests').doc(reqId);
+  const reqSnap = await reqRef.get();
+  if (!reqSnap.exists) return { ok: false, msg: 'Request not found.' };
+  const req = reqSnap.data();
+  // Create user account
+  const userId = 'USR-' + Date.now();
+  const adminData = ADMINS.find(a => a.name === req.department);
+  const deptColor = adminData ? adminData.color : '#0ea5e9';
+  await _db.collection('users').doc(userId).set({
+    uid: userId, name: req.name, email: req.email, department: req.department,
+    username: generatedUsername, password: btoa(generatedPassword),
+    role: 'user', status: 'active', color: deptColor,
+    createdAt: new Date().toISOString(), lastLogin: null,
+  });
+  // Mark request approved
+  await reqRef.update({ status: 'approved', reviewedBy: SENIOR_ADMIN, reviewedAt: new Date().toISOString(), userId });
+  // Mark notification read
+  const notifSnap = await _db.collection('notifications')
+    .where('reqId', '==', reqId).limit(1).get();
+  if (!notifSnap.empty) await notifSnap.docs[0].ref.update({ read: true });
+  return { ok: true, username: generatedUsername, password: generatedPassword };
+}
+
+async function rejectAccess(reqId, reason) {
+  if (!isFirebaseReady()) return;
+  await _db.collection('accessRequests').doc(reqId).update({
+    status: 'rejected', reviewedBy: SENIOR_ADMIN,
+    reviewedAt: new Date().toISOString(), reason: reason || ''
+  });
+  const notifSnap = await _db.collection('notifications')
+    .where('reqId', '==', reqId).limit(1).get();
+  if (!notifSnap.empty) await notifSnap.docs[0].ref.update({ read: true });
+}
+
+// ── Notifications listener (for senior admin) ────────────────
+function subscribeToNotifications(callback) {
+  if (!isFirebaseReady()) return () => {};
+  return _db.collection('notifications')
+    .where('to', '==', SENIOR_ADMIN)
+    .where('read', '==', false)
+    .orderBy('created', 'desc')
+    .onSnapshot(snap => callback(snap.docs.map(d => ({ docId: d.id, ...d.data() }))),
+      err => console.error('Notif error:', err));
+}
+
+// ── List pending requests (senior admin panel) ───────────────
+function subscribeToPendingRequests(callback) {
+  if (!isFirebaseReady()) return () => {};
+  return _db.collection('accessRequests')
+    .where('status', '==', 'pending')
+    .orderBy('created', 'desc')
+    .onSnapshot(snap => callback(snap.docs.map(d => d.data())),
+      err => console.error('Requests error:', err));
+}
+
+// ── List all users (admin only) ──────────────────────────────
+function subscribeToUsers(callback) {
+  if (!isFirebaseReady()) return () => {};
+  return _db.collection('users')
+    .orderBy('createdAt', 'desc')
+    .onSnapshot(snap => callback(snap.docs.map(d => d.data())),
+      err => console.error('Users error:', err));
+}
+
+async function deactivateUser(uid) {
+  if (!isFirebaseReady()) return;
+  await _db.collection('users').doc(uid).update({ status: 'inactive' });
+}
+
+// ── Username generator helper ────────────────────────────────
+function generateUsername(name, department) {
+  const first = name.trim().split(' ')[0].toLowerCase().replace(/[^a-z]/g,'');
+  const dept  = department.trim().slice(0,3).toLowerCase().replace(/[^a-z]/g,'');
+  const num   = Math.floor(100 + Math.random() * 900);
+  return `${first}.${dept}${num}`;
+}
+function generatePassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#!';
+  return Array.from({length:10}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+
+// ── Seed admin accounts (run once) ──────────────────────────
+async function seedAdminAccounts() {
+  if (!isFirebaseReady()) return;
+  for (const admin of ADMINS) {
+    const uname = admin.name.toLowerCase();
+    const snap  = await _db.collection('users').where('username','==',uname).limit(1).get();
+    if (!snap.empty) continue; // already exists
+    await _db.collection('users').add({
+      name: admin.name, email: uname + '@helpdesk.com',
+      username: uname, password: btoa('Admin@' + admin.name + '2025'),
+      role: 'admin', status: 'active', department: admin.department,
+      color: admin.color, createdAt: new Date().toISOString(), lastLogin: null,
+    });
+    console.log('Seeded admin:', admin.name, '/ password: Admin@' + admin.name + '2025');
+  }
+}
