@@ -28,6 +28,21 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 .nav-item:hover{background:var(--surface2);color:var(--text)}.nav-item.active{background:var(--accent-dim);color:var(--accent)}
 .nav-item-left{display:flex;align-items:center;gap:9px}.nav-item-icon{font-size:15px;width:20px;text-align:center}
 .nav-badge{background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;font-family:var(--font-mono)}
+/* COLLAPSIBLE NAV GROUPS */
+.nav-group{padding:4px 12px}
+.nav-group-header{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:7px;cursor:pointer;color:var(--text2);font-size:13px;font-weight:600;border:none;background:none;width:100%;text-align:left;transition:all var(--transition);user-select:none}
+.nav-group-header:hover{background:var(--surface2);color:var(--text)}
+.nav-group-header.open{color:var(--text)}
+.nav-group-left{display:flex;align-items:center;gap:9px}
+.nav-group-icon{font-size:15px;width:20px;text-align:center}
+.nav-group-right{display:flex;align-items:center;gap:6px}
+.nav-chevron{font-size:10px;color:var(--muted);transition:transform var(--transition)}
+.nav-group-header.open .nav-chevron{transform:rotate(180deg)}
+.nav-group-body{display:none;flex-direction:column;gap:2px;padding:2px 0 4px 4px}
+.nav-group-body.open{display:flex}
+.nav-sub-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px 6px 28px;border-radius:7px;cursor:pointer;color:var(--text2);font-size:12px;font-weight:500;border:none;background:none;width:100%;text-align:left;transition:all var(--transition);text-decoration:none}
+.nav-sub-item:hover{background:var(--surface2);color:var(--text)}
+.nav-sub-item.active{background:var(--accent-dim);color:var(--accent)}
 
 /* ADMIN CARDS in sidebar */
 .admin-cards{display:flex;flex-direction:column;gap:6px;padding:0 12px}
@@ -183,44 +198,53 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
       <div class="logo-text">Help<span>Desk</span></div>
     </div>
 
-    <div class="nav-section">
-      <div class="nav-label">Menu</div>
+    <!-- Dashboard link -->
+    <div class="nav-section" style="padding-bottom:4px">
       <a class="nav-item active" href="index.html">
         <span class="nav-item-left"><span class="nav-item-icon">📊</span> Dashboard</span>
       </a>
-      <button class="nav-item" onclick="clearAdminFilter();filterNav('all')">
-        <span class="nav-item-left"><span class="nav-item-icon">🎫</span> All Tickets</span>
-        <span class="nav-badge" id="nav-total">0</span>
-      </button>
-      <button class="nav-item" onclick="clearAdminFilter();filterNav('open')">
-        <span class="nav-item-left"><span class="nav-item-icon">🔵</span> Open</span>
-        <span class="nav-badge" id="nav-open" style="background:var(--open)">0</span>
-      </button>
-      <button class="nav-item" onclick="clearAdminFilter();filterNav('inprogress')">
-        <span class="nav-item-left"><span class="nav-item-icon">🟣</span> In Progress</span>
-        <span class="nav-badge" id="nav-prog" style="background:var(--inprogress)">0</span>
-      </button>
-      <button class="nav-item" onclick="clearAdminFilter();filterNav('resolved')">
-        <span class="nav-item-left"><span class="nav-item-icon">🟢</span> Resolved</span>
-        <span class="nav-badge" id="nav-res" style="background:var(--resolved)">0</span>
-      </button>
     </div>
 
-    <!-- ADMIN CARDS -->
-    <div class="nav-section">
-      <div class="nav-label">Admins — click your name</div>
-      <div class="admin-cards" id="adminCards"></div>
+    <!-- TICKETS DROPDOWN -->
+    <div class="nav-group">
+      <button class="nav-group-header open" onclick="toggleNavGroup(this)">
+        <span class="nav-group-left"><span class="nav-group-icon">🎫</span> Tickets</span>
+        <span class="nav-group-right">
+          <span class="nav-badge" id="nav-total">0</span>
+          <span class="nav-chevron">▼</span>
+        </span>
+      </button>
+      <div class="nav-group-body open">
+        <button class="nav-sub-item" onclick="clearAdminFilter();filterNav('open')">
+          <span style="display:flex;align-items:center;gap:7px">🔵 Open</span>
+          <span class="nav-badge" id="nav-open" style="background:var(--open)">0</span>
+        </button>
+        <button class="nav-sub-item" onclick="clearAdminFilter();filterNav('inprogress')">
+          <span style="display:flex;align-items:center;gap:7px">🟣 In Progress</span>
+          <span class="nav-badge" id="nav-prog" style="background:var(--inprogress)">0</span>
+        </button>
+        <button class="nav-sub-item" onclick="clearAdminFilter();filterNav('resolved')">
+          <span style="display:flex;align-items:center;gap:7px">🟢 Resolved</span>
+          <span class="nav-badge" id="nav-res" style="background:var(--resolved)">0</span>
+        </button>
+      </div>
     </div>
 
-    <div class="nav-section">
-      <div class="nav-label">Community</div>
+    <!-- ADMINS DROPDOWN -->
+    <div class="nav-group">
+      <button class="nav-group-header open" onclick="toggleNavGroup(this)">
+        <span class="nav-group-left"><span class="nav-group-icon">👥</span> Admins</span>
+        <span class="nav-group-right"><span class="nav-chevron">▼</span></span>
+      </button>
+      <div class="nav-group-body open" id="adminCards"></div>
+    </div>
+
+    <!-- Community -->
+    <div class="nav-section" style="padding-top:4px">
       <a class="nav-item" href="community.html">
-        <span class="nav-item-left"><span class="nav-item-icon">💬</span> Community Channel</span>
+        <span class="nav-item-left"><span class="nav-item-icon">💬</span> Community</span>
         <span class="nav-badge" id="nav-community" style="background:var(--inprogress)">New</span>
       </a>
-    </div>
-    <div class="nav-section">
-      <div class="nav-label">Settings</div>
       <button class="nav-item" onclick="openSettings()">
         <span class="nav-item-left"><span class="nav-item-icon">⚙️</span> Settings</span>
       </button>
@@ -403,20 +427,18 @@ function startRealtime() {
 function renderAdminCards() {
   const container = document.getElementById('adminCards');
   container.innerHTML = ADMINS.map(a => {
-    const count = allTickets.filter(t => t.assignee === a.name).length;
     const openCount = allTickets.filter(t => t.assignee === a.name && t.status !== 'resolved').length;
     const isActive = activeAdmin === a.name;
     return `
-      <div class="admin-card${isActive?' active-admin':''}"
-           style="--admin-color:${a.color}"
-           onclick="filterByAdmin('${a.name}')">
-        <div class="admin-avatar" style="background:${a.color}">${a.avatar}</div>
-        <div class="admin-info">
-          <div class="admin-name">${a.name}</div>
-          <div class="admin-dept">${a.emoji} ${a.department}</div>
-        </div>
-        <div class="admin-count" style="color:${a.color}">${openCount} open</div>
-      </div>`;
+      <button class="nav-sub-item${isActive?' active':''}"
+              style="${isActive?'background:color-mix(in srgb,'+a.color+' 10%,transparent);color:'+a.color:''}"
+              onclick="filterByAdmin('${a.name}')">
+        <span style="display:flex;align-items:center;gap:8px">
+          <span style="width:22px;height:22px;border-radius:50%;background:${a.color};display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0">${a.avatar}</span>
+          <span>${a.emoji} ${a.name}</span>
+        </span>
+        <span style="font-size:10px;font-weight:700;font-family:var(--font-mono);color:${a.color};background:color-mix(in srgb,${a.color} 12%,transparent);padding:1px 6px;border-radius:8px">${openCount}</span>
+      </button>`;
   }).join('');
 }
 
