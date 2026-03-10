@@ -375,9 +375,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
       </div>
       <div class="sh-footer">
         <div style="font-size:12px;color:var(--muted)">✅ Issue solved? Great — no ticket needed!</div>
-        <button class="btn btn-primary sh-log-btn" id="shLogBtn" onclick="shProceedToTicket()">
-          Still broken — Log a Ticket →
-        </button>
+        <div id="shLogBtn" class="sh-log-btn">
+          <button class="btn btn-primary" onclick="shProceedToTicket()" style="gap:8px">
+            📋 Log a Ticket →
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -916,19 +918,21 @@ function shBack() {
 }
 
 function shProceedToTicket() {
-  closeSelfHelp();
-  // Pre-fill the ticket form with the selected category info
+  // Save selected BEFORE closing (closeSelfHelp resets shSelected to null)
+  const saved = shSelected;
+  // Close self-help modal directly (don't call closeSelfHelp which nulls shSelected)
+  document.getElementById('selfHelpModal').classList.remove('open');
+  // Open ticket form
   renderAdminPicker();
   document.getElementById('nAssignee').value = '';
-  if (shSelected) {
-    // Pre-select the matching admin
-    selectAdmin(shSelected.admin);
-    // Pre-fill title hint
-    document.getElementById('nTitle').value = shSelected.label + ' issue — ';
+  if (saved) {
+    selectAdmin(saved.admin);
+    document.getElementById('nTitle').value = saved.label + ' issue — ';
   }
   document.getElementById('newModal').classList.add('open');
   setTimeout(() => {
     const t = document.getElementById('nTitle');
+    if (!t) return;
     t.focus();
     t.setSelectionRange(t.value.length, t.value.length);
   }, 150);
