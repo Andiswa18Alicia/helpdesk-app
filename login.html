@@ -117,40 +117,101 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-heigh
 </div>
 <script>
 const DEPARTMENTS = ['Finance','HR','Operations','Marketing','Sales','Logistics','Legal','Admin','Facilities'];
-document.addEventListener('DOMContentLoaded', () => {
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // Theme
   document.getElementById('themeBtn').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+
+  // Department chips
   document.getElementById('deptChips').innerHTML = DEPARTMENTS.map(d =>
     `<div class="dept-chip" onclick="selectDept(this,'${d}')">${d}</div>`).join('');
+
+  // Init Firebase
   const ok = initFirebase();
-  if (ok) { seedAdminAccounts(); redirectIfLoggedIn(); }
+  if (!ok) { console.error('Firebase failed to init'); return; }
+
+  // Create admin accounts if they don't exist yet (runs silently)
+  await ensureAdminAccounts();
+
+  // If already logged in, redirect straight away
+  const sess = SESSION.get();
+  if (sess) {
+    window.location.href = sess.role === 'admin' ? 'index.html' : 'portal.html';
+  }
 });
+
 function showTab(t) {
-  document.getElementById('panel-login').style.display   = t==='login'   ? 'block':'none';
-  document.getElementById('panel-request').style.display = t==='request' ? 'block':'none';
-  document.getElementById('tab-login').classList.toggle('active',   t==='login');
-  document.getElementById('tab-request').classList.toggle('active', t==='request');
+  document.getElementById('panel-login').style.display   = t === 'login'   ? 'block' : 'none';
+  document.getElementById('panel-request').style.display = t === 'request' ? 'block' : 'none';
+  document.getElementById('tab-login').classList.toggle('active',   t === 'login');
+  document.getElementById('tab-request').classList.toggle('active', t === 'request');
 }
-function togglePw(id,btn){ const el=document.getElementById(id); el.type=el.type==='password'?'text':'password'; btn.textContent=el.type==='password'?'👁':'🙈'; }
-function selectDept(el,dept){ document.querySelectorAll('.dept-chip').forEach(c=>c.classList.remove('selected')); el.classList.add('selected'); document.getElementById('reqDept').value=dept; }
-function showAlert(id,msg,type){ const el=document.getElementById(id); el.style.display='flex'; el.className=`alert alert-${type}`; el.innerHTML=`<span>${type==='error'?'❌':'✅'}</span><span>${msg}</span>`; }
-async function doLogin(){
-  const u=document.getElementById('loginUser').value.trim(), p=document.getElementById('loginPass').value;
-  if(!u||!p){showAlert('loginAlert','Please enter your username and password.','error');return;}
-  const btn=document.getElementById('loginBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Signing in...';
-  document.getElementById('loginAlert').style.display='none';
-  const r=await loginUser(u,p);
-  if(r.ok){ btn.innerHTML='✅ Redirecting...'; setTimeout(()=>{ window.location.href=r.user.role==='admin'?'index.html':'portal.html'; },600); }
-  else{ showAlert('loginAlert',r.msg,'error'); btn.disabled=false; btn.innerHTML='Sign In →'; }
+
+function togglePw(id, btn) {
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+  btn.textContent = el.type === 'password' ? '👁' : '🙈';
 }
-async function doRequest(){
-  const n=document.getElementById('reqName').value.trim(), e=document.getElementById('reqEmail').value.trim(), d=document.getElementById('reqDept').value.trim();
-  if(!n||!e||!d){showAlert('reqAlert','Please fill in all fields.','error');return;}
-  if(!e.includes('@')){showAlert('reqAlert','Please enter a valid email.','error');return;}
-  const btn=document.getElementById('reqBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Submitting...';
-  document.getElementById('reqAlert').style.display='none';
-  const r=await requestAccess(n,e,d);
-  if(r.ok){ document.getElementById('reqForm').style.display='none'; document.getElementById('reqSuccess').style.display='block'; }
-  else{ showAlert('reqAlert',r.msg,'error'); btn.disabled=false; btn.innerHTML='📨 Submit Request'; }
+
+function selectDept(el, dept) {
+  document.querySelectorAll('.dept-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('reqDept').value = dept;
+}
+
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  el.style.display = 'flex';
+  el.className = `alert alert-${type}`;
+  el.innerHTML = `<span>${type === 'error' ? '❌' : '✅'}</span><span>${msg}</span>`;
+}
+
+async function doLogin() {
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  if (!u || !p) { showAlert('loginAlert', 'Please enter your username and password.', 'error'); return; }
+
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Signing in...';
+  document.getElementById('loginAlert').style.display = 'none';
+
+  const r = await loginUser(u, p);
+
+  if (r.ok) {
+    btn.innerHTML = '✅ Redirecting...';
+    setTimeout(() => {
+      window.location.href = r.role === 'admin' ? 'index.html' : 'portal.html';
+    }, 600);
+  } else {
+    showAlert('loginAlert', r.msg, 'error');
+    btn.disabled = false;
+    btn.innerHTML = 'Sign In →';
+  }
+}
+
+async function doRequest() {
+  const n = document.getElementById('reqName').value.trim();
+  const e = document.getElementById('reqEmail').value.trim();
+  const d = document.getElementById('reqDept').value.trim();
+  if (!n || !e || !d) { showAlert('reqAlert', 'Please fill in all fields.', 'error'); return; }
+  if (!e.includes('@')) { showAlert('reqAlert', 'Please enter a valid email.', 'error'); return; }
+
+  const btn = document.getElementById('reqBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Submitting...';
+  document.getElementById('reqAlert').style.display = 'none';
+
+  const r = await submitAccessRequest({ name: n, email: e, department: d });
+
+  if (r.ok) {
+    document.getElementById('reqForm').style.display = 'none';
+    document.getElementById('reqSuccess').style.display = 'block';
+  } else {
+    showAlert('reqAlert', r.msg, 'error');
+    btn.disabled = false;
+    btn.innerHTML = '📨 Submit Request';
+  }
 }
 </script>
 </body>
