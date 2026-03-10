@@ -177,7 +177,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 .settings-section h3{font-size:13px;font-weight:700;margin-bottom:12px;color:var(--text2);text-transform:uppercase;letter-spacing:0.08em}
 
 /* SELF-HELP MODAL */
-.sh-modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:620px;box-shadow:0 24px 80px rgba(0,0,0,0.4);animation:modalIn 0.25s ease;overflow:hidden;max-height:90vh;display:flex;flex-direction:column}
+.sh-modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:620px;box-shadow:0 24px 80px rgba(0,0,0,0.4);animation:modalIn 0.25s ease;overflow:hidden;max-height:88vh;display:flex;flex-direction:column;height:88vh}
 .sh-steps{padding:0 24px 0}
 /* CATEGORY GRID */
 .sh-cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:20px 24px}
@@ -359,26 +359,28 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
     </div>
 
     <!-- STEP 2: Steps view -->
-    <div id="shStepsView" style="display:none;flex:1;overflow:hidden;flex-direction:column">
-      <div class="sh-steps">
-        <div class="sh-steps-header">
-          <button class="sh-back-btn" onclick="shBack()">← Back</button>
-          <div class="sh-steps-title" id="shStepsTitle"></div>
-        </div>
+    <div id="shStepsView" style="display:none;flex-direction:column;flex:1;min-height:0">
+      <div style="padding:16px 24px 0;display:flex;align-items:center;gap:10px">
+        <button class="sh-back-btn" onclick="shBack()">← Back</button>
+        <div class="sh-steps-title" id="shStepsTitle"></div>
+      </div>
+      <div style="padding:14px 24px;overflow-y:auto;flex:1">
         <div class="sh-step-list" id="shStepList"></div>
-        <div class="sh-confirm-row">
+      </div>
+      <div style="padding:14px 24px;border-top:1px solid var(--border);background:var(--surface)">
+        <div class="sh-confirm-row" style="margin-bottom:14px">
           <input type="checkbox" class="sh-confirm-check" id="shConfirmCheck" onchange="shCheckConfirm()">
           <label class="sh-confirm-label" for="shConfirmCheck">
             I have tried all the steps above and the issue is still not resolved
           </label>
         </div>
-      </div>
-      <div class="sh-footer">
-        <div style="font-size:12px;color:var(--muted)">✅ Issue solved? Great — no ticket needed!</div>
-        <div id="shLogBtn" class="sh-log-btn">
-          <button class="btn btn-primary" onclick="shProceedToTicket()" style="gap:8px">
-            📋 Log a Ticket →
-          </button>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div style="font-size:12px;color:var(--muted)">✅ Issue solved? Great — no ticket needed!</div>
+          <div id="shLogBtn" class="sh-log-btn">
+            <button class="btn btn-primary" onclick="shProceedToTicket()">
+              📋 Log a Ticket →
+            </button>
+          </div>
         </div>
       </div>
     </div>
