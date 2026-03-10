@@ -176,6 +176,38 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 .settings-section{margin-bottom:20px}
 .settings-section h3{font-size:13px;font-weight:700;margin-bottom:12px;color:var(--text2);text-transform:uppercase;letter-spacing:0.08em}
 
+/* SELF-HELP MODAL */
+.sh-modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:620px;box-shadow:0 24px 80px rgba(0,0,0,0.4);animation:modalIn 0.25s ease;overflow:hidden;max-height:90vh;display:flex;flex-direction:column}
+.sh-steps{padding:0 24px 0}
+/* CATEGORY GRID */
+.sh-cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:20px 24px}
+.sh-cat-card{padding:16px 10px;border-radius:10px;border:2px solid var(--border);background:var(--surface2);cursor:pointer;transition:all var(--transition);text-align:center}
+.sh-cat-card:hover{border-color:var(--cat-color,var(--accent));transform:translateY(-2px)}
+.sh-cat-card.selected{border-color:var(--cat-color,var(--accent));background:color-mix(in srgb,var(--cat-color,var(--accent)) 10%,transparent)}
+.sh-cat-icon{font-size:28px;margin-bottom:8px}
+.sh-cat-label{font-size:12px;font-weight:700;color:var(--text)}
+/* STEPS */
+.sh-steps-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-top:4px}
+.sh-back-btn{background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:4px 10px;font-size:12px;cursor:pointer;font-family:var(--font-ui);transition:all var(--transition)}
+.sh-back-btn:hover{border-color:var(--accent);color:var(--accent)}
+.sh-steps-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.sh-step-list{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;max-height:320px;overflow-y:auto;padding-right:4px}
+.sh-step-list::-webkit-scrollbar{width:4px}.sh-step-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.sh-step{display:flex;gap:12px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;align-items:flex-start;transition:all var(--transition)}
+.sh-step.done{background:rgba(34,197,94,0.06);border-color:rgba(34,197,94,0.3)}
+.sh-step-num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;margin-top:1px}
+.sh-step.done .sh-step-num{background:var(--low)}
+.sh-step-text{font-size:13px;color:var(--text2);line-height:1.5;flex:1}
+.sh-step-check{width:18px;height:18px;border-radius:4px;border:2px solid var(--border);cursor:pointer;flex-shrink:0;appearance:none;margin-top:3px;transition:all var(--transition)}
+.sh-step-check:checked{background:var(--low);border-color:var(--low)}
+.sh-confirm-row{display:flex;align-items:center;gap:10px;padding:14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:9px;margin-bottom:4px}
+.sh-confirm-check{width:18px;height:18px;border-radius:4px;border:2px solid rgba(245,158,11,0.5);cursor:pointer;appearance:none;flex-shrink:0;transition:all var(--transition)}
+.sh-confirm-check:checked{background:var(--medium);border-color:var(--medium)}
+.sh-confirm-label{font-size:12px;font-weight:600;color:var(--medium);cursor:pointer;line-height:1.4}
+.sh-footer{padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-shrink:0}
+.sh-log-btn{opacity:0.4;pointer-events:none;transition:opacity var(--transition)}
+.sh-log-btn.unlocked{opacity:1;pointer-events:auto}
+
 /* TOAST */
 .toast{position:fixed;bottom:24px;right:24px;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-size:13px;font-weight:500;opacity:0;transform:translateY(8px);transition:all 0.25s ease;max-width:320px}
 .toast.toast-show{opacity:1;transform:translateY(0)}
@@ -305,6 +337,48 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
         </div>
       </div>
       <div class="ticket-list" id="ticketList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SELF-HELP MODAL -->
+<div class="modal-overlay" id="selfHelpModal">
+  <div class="sh-modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">🔧 Self-Help Troubleshooter</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Try these steps first — most issues can be fixed in minutes!</div>
+      </div>
+      <button class="modal-close" onclick="closeSelfHelp()">✕</button>
+    </div>
+
+    <!-- STEP 1: Category picker -->
+    <div id="shCatView">
+      <div style="padding:16px 24px 0;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em">What type of problem are you having?</div>
+      <div class="sh-cat-grid" id="shCatGrid"></div>
+    </div>
+
+    <!-- STEP 2: Steps view -->
+    <div id="shStepsView" style="display:none;flex:1;overflow:hidden;display:none;flex-direction:column">
+      <div class="sh-steps">
+        <div class="sh-steps-header">
+          <button class="sh-back-btn" onclick="shBack()">← Back</button>
+          <div class="sh-steps-title" id="shStepsTitle"></div>
+        </div>
+        <div class="sh-step-list" id="shStepList"></div>
+        <div class="sh-confirm-row">
+          <input type="checkbox" class="sh-confirm-check" id="shConfirmCheck" onchange="shCheckConfirm()">
+          <label class="sh-confirm-label" for="shConfirmCheck">
+            I have tried all the steps above and the issue is still not resolved
+          </label>
+        </div>
+      </div>
+      <div class="sh-footer">
+        <div style="font-size:12px;color:var(--muted)">✅ Issue solved? Great — no ticket needed!</div>
+        <button class="btn btn-primary sh-log-btn" id="shLogBtn" onclick="shProceedToTicket()">
+          Still broken — Log a Ticket →
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -648,10 +722,8 @@ function copyShareLink() {
 
 // ---- NEW TICKET ----
 function openNewModal() {
-  renderAdminPicker();
-  document.getElementById('nAssignee').value = '';
-  document.getElementById('newModal').classList.add('open');
-  setTimeout(()=>document.getElementById('nTitle').focus(),100);
+  // Open self-help first
+  openSelfHelp();
 }
 function closeNewModal() {
   document.getElementById('newModal').classList.remove('open');
@@ -700,6 +772,168 @@ function openSettings() {
 }
 function closeSettings(){ document.getElementById('settingsModal').classList.remove('open'); }
 
+// ---- SELF-HELP TROUBLESHOOTER ----
+const SELF_HELP = [
+  {
+    id:'software', label:'Software / App', icon:'💻', color:'#0ea5e9', admin:'Andiswa',
+    steps:[
+      'Restart the application — close it completely and reopen it.',
+      'Restart your computer and try again after it fully boots up.',
+      'Check if there are any pending Windows or software updates and install them.',
+      'Run the application as Administrator — right-click the app icon and select "Run as administrator".',
+      'Check your disk space — go to This PC and make sure you have at least 2GB free.',
+      'Uninstall and reinstall the application if the problem persists.',
+    ]
+  },
+  {
+    id:'hardware', label:'Hardware', icon:'🖥️', color:'#a855f7', admin:'Relebohile',
+    steps:[
+      'Check all cables and connections — unplug and firmly replug every cable on the device.',
+      'Restart your computer — many hardware glitches are resolved with a full reboot.',
+      'Try a different USB port or cable if the device isn't being recognised.',
+      'Check Device Manager (right-click Start → Device Manager) for any yellow warning icons.',
+      'Test the device on another computer if possible to confirm whether it's the device or your PC.',
+      'Make sure drivers are up to date — check the manufacturer's website.',
+    ]
+  },
+  {
+    id:'network', label:'Network / WiFi', icon:'🌐', color:'#22c55e', admin:'Lwando',
+    steps:[
+      'Turn WiFi off and back on from your taskbar or settings.',
+      'Forget the WiFi network and reconnect — go to WiFi Settings → Manage known networks.',
+      'Restart your router by unplugging it for 30 seconds and plugging it back in.',
+      'Run the Windows Network Troubleshooter — Settings → System → Troubleshoot → Internet Connections.',
+      'Check if other devices can connect to the same network to isolate the problem.',
+      'Flush your DNS — open Command Prompt and type: ipconfig /flushdns',
+    ]
+  },
+  {
+    id:'password', label:'Password & Access', icon:'🔑', color:'#f59e0b', admin:'Andiswa',
+    steps:[
+      'Try the "Forgot Password" or "Reset Password" link on the login page.',
+      'Check if Caps Lock is on — passwords are case-sensitive.',
+      'Try a different browser or clear your browser cache and cookies.',
+      'Make sure you are using the correct email address for that account.',
+      'Check if your account may be locked due to too many failed attempts — wait 15 minutes and try again.',
+      'If it's a work system, ask a colleague if they are also having access issues.',
+    ]
+  },
+  {
+    id:'printer', label:'Printer', icon:'🖨️', color:'#f97316', admin:'Relebohile',
+    steps:[
+      'Check that the printer is turned on and the power light is solid (not blinking).',
+      'Check all cables or confirm the printer is connected to the same WiFi network.',
+      'Clear the print queue — go to Settings → Bluetooth & devices → Printers → Open print queue → Cancel all.',
+      'Restart both the printer and your computer.',
+      'Remove the printer from your PC and re-add it — Settings → Bluetooth & devices → Add a printer.',
+      'Check ink or toner levels and that there is paper loaded correctly.',
+    ]
+  },
+  {
+    id:'email', label:'Email', icon:'📧', color:'#06b6d4', admin:'Andiswa',
+    steps:[
+      'Check your internet connection — open a browser and load any website.',
+      'Log out of your email account and log back in.',
+      'Clear your browser cache and cookies, then try again.',
+      'Check if the email server is down — try accessing via webmail (browser) if you use an app.',
+      'Check your spam or junk folder if you're not receiving expected emails.',
+      'Make sure your mailbox is not full — delete old emails or empty your trash folder.',
+    ]
+  },
+];
+
+let shSelected = null;
+
+function openSelfHelp() {
+  shSelected = null;
+  document.getElementById('shCatView').style.display = 'block';
+  document.getElementById('shStepsView').style.display = 'none';
+  renderShCategories();
+  document.getElementById('selfHelpModal').classList.add('open');
+}
+
+function closeSelfHelp() {
+  document.getElementById('selfHelpModal').classList.remove('open');
+  shSelected = null;
+}
+
+function renderShCategories() {
+  document.getElementById('shCatGrid').innerHTML = SELF_HELP.map(c => `
+    <div class="sh-cat-card" style="--cat-color:${c.color}" onclick="shSelectCat('${c.id}')">
+      <div class="sh-cat-icon">${c.icon}</div>
+      <div class="sh-cat-label">${c.label}</div>
+    </div>`).join('');
+}
+
+function shSelectCat(id) {
+  shSelected = SELF_HELP.find(c => c.id === id);
+  if (!shSelected) return;
+
+  // Show steps view
+  document.getElementById('shCatView').style.display = 'none';
+  const sv = document.getElementById('shStepsView');
+  sv.style.display = 'flex';
+  sv.style.flexDirection = 'column';
+
+  document.getElementById('shStepsTitle').innerHTML =
+    `<span style="font-size:20px">${shSelected.icon}</span> ${shSelected.label}`;
+
+  document.getElementById('shStepList').innerHTML = shSelected.steps.map((s, i) => `
+    <label class="sh-step" id="sh-step-${i}">
+      <div class="sh-step-num" id="sh-num-${i}">${i+1}</div>
+      <div class="sh-step-text">${s}</div>
+      <input type="checkbox" class="sh-step-check" onchange="shStepChecked(${i}, this)">
+    </label>`).join('');
+
+  document.getElementById('shConfirmCheck').checked = false;
+  document.getElementById('shLogBtn').classList.remove('unlocked');
+}
+
+function shStepChecked(i, el) {
+  const step = document.getElementById('sh-step-' + i);
+  const num  = document.getElementById('sh-num-' + i);
+  if (el.checked) {
+    step.classList.add('done');
+    num.textContent = '✓';
+    num.style.background = '#22c55e';
+  } else {
+    step.classList.remove('done');
+    num.textContent = i + 1;
+    num.style.background = '';
+  }
+}
+
+function shCheckConfirm() {
+  const confirmed = document.getElementById('shConfirmCheck').checked;
+  const btn = document.getElementById('shLogBtn');
+  btn.classList.toggle('unlocked', confirmed);
+}
+
+function shBack() {
+  document.getElementById('shStepsView').style.display = 'none';
+  document.getElementById('shCatView').style.display = 'block';
+  shSelected = null;
+}
+
+function shProceedToTicket() {
+  closeSelfHelp();
+  // Pre-fill the ticket form with the selected category info
+  renderAdminPicker();
+  document.getElementById('nAssignee').value = '';
+  if (shSelected) {
+    // Pre-select the matching admin
+    selectAdmin(shSelected.admin);
+    // Pre-fill title hint
+    document.getElementById('nTitle').value = shSelected.label + ' issue — ';
+  }
+  document.getElementById('newModal').classList.add('open');
+  setTimeout(() => {
+    const t = document.getElementById('nTitle');
+    t.focus();
+    t.setSelectionRange(t.value.length, t.value.length);
+  }, 150);
+}
+
 // ---- COLLAPSIBLE NAV DROPDOWNS ----
 function toggleNavGroup(btn) {
   const isOpen = btn.classList.contains('open');
@@ -712,7 +946,7 @@ function toggleNavGroup(btn) {
   document.getElementById(id).addEventListener('click',e=>{ if(e.target.id===id) document.getElementById(id).classList.remove('open'); });
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){closeNewModal();closeSettings();}
+  if(e.key==='Escape'){closeSelfHelp();closeNewModal();closeSettings();}
   if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();openNewModal();}
 });
 </script>
