@@ -700,6 +700,14 @@ function openSettings() {
 }
 function closeSettings(){ document.getElementById('settingsModal').classList.remove('open'); }
 
+// ---- COLLAPSIBLE NAV DROPDOWNS ----
+function toggleNavGroup(btn) {
+  const isOpen = btn.classList.contains('open');
+  btn.classList.toggle('open', !isOpen);
+  const body = btn.nextElementSibling;
+  if (body) body.classList.toggle('open', !isOpen);
+}
+
 ['newModal','settingsModal'].forEach(id=>{
   document.getElementById(id).addEventListener('click',e=>{ if(e.target.id===id) document.getElementById(id).classList.remove('open'); });
 });
