@@ -405,51 +405,95 @@ function renderLineChart(tickets) {
 }
 
 function renderBarChart(tickets, groupBy) {
-  const W = 340, H = 200, PAD = { t:10, r:10, b:50, l:40 };
-  const cW = W - PAD.l - PAD.r;
-  const cH = H - PAD.t - PAD.b;
+  const isStatus = groupBy === 'status';
 
-  let groups, colors;
-  if (groupBy === 'status') {
+  let groups;
+  if (isStatus) {
     groups = [
-      { key:'open',       label:'Open',      color:'#0ea5e9' },
-      { key:'inprogress', label:'In Prog.',   color:'#a855f7' },
-      { key:'resolved',   label:'Resolved',  color:'#22c55e' },
+      { key:'open',       label:'Open',       color:'#0ea5e9', emoji:'🔵', desc:'Awaiting action' },
+      { key:'inprogress', label:'In Progress', color:'#a855f7', emoji:'🟣', desc:'Currently being worked on' },
+      { key:'resolved',   label:'Resolved',   color:'#22c55e', emoji:'🟢', desc:'Issue fixed & closed' },
     ];
   } else {
     groups = [
-      { key:'low',      label:'Low',      color:'#22c55e' },
-      { key:'medium',   label:'Medium',   color:'#f59e0b' },
-      { key:'high',     label:'High',     color:'#f97316' },
-      { key:'critical', label:'Critical', color:'#ef4444' },
+      { key:'low',      label:'Low',      color:'#22c55e', emoji:'🟢', desc:'Non-urgent, can wait' },
+      { key:'medium',   label:'Medium',   color:'#f59e0b', emoji:'🟡', desc:'Needs attention soon' },
+      { key:'high',     label:'High',     color:'#f97316', emoji:'🟠', desc:'Important, act quickly' },
+      { key:'critical', label:'Critical', color:'#ef4444', emoji:'🔴', desc:'Urgent, stop everything' },
     ];
   }
 
-  const counts  = groups.map(g => tickets.filter(t => t[groupBy] === g.key).length);
-  const maxVal  = Math.max(...counts, 1);
-  const barW    = Math.floor(cW / groups.length) - 12;
-  const barGap  = (cW - barW * groups.length) / (groups.length + 1);
+  const counts = groups.map(g => tickets.filter(t => t[groupBy] === g.key).length);
+  const total  = counts.reduce((a,b) => a+b, 0) || 1;
+  const maxVal = Math.max(...counts, 1);
 
-  const gridLines = Array.from({length:4},(_,i)=>{
-    const y = PAD.t + (cH/3)*i;
-    const val = Math.round(maxVal - (maxVal/3)*i);
-    return `<line x1="${PAD.l}" y1="${y}" x2="${W-PAD.r}" y2="${y}" class="grid-line"/>
-            <text x="${PAD.l-6}" y="${y+4}" class="axis-label" text-anchor="end">${val}</text>`;
+  const title   = isStatus ? '📊 Tickets by Status' : '🎯 Tickets by Priority';
+  const explain = isStatus
+    ? 'Shows how many tickets are waiting, in progress, or done. A healthy helpdesk has most tickets in <strong style="color:#22c55e">Resolved</strong>.'
+    : 'Shows the urgency of open tickets. Watch out for too many <strong style="color:#ef4444">Critical</strong> or <strong style="color:#f97316">High</strong> tickets.';
+
+  // SVG bar chart — wider, taller, more readable
+  const W = 400, H = 200, PAD = { t:30, r:16, b:24, l:36 };
+  const cW = W - PAD.l - PAD.r;
+  const cH = H - PAD.t - PAD.b;
+  const barW   = Math.floor(cW / groups.length * 0.55);
+  const spacing= cW / groups.length;
+
+  const gridLines = Array.from({length:5}, (_,i) => {
+    const y   = PAD.t + (cH/4)*i;
+    const val = Math.round(maxVal - (maxVal/4)*i);
+    return `<line x1="${PAD.l}" y1="${y}" x2="${W-PAD.r}" y2="${y}" stroke-dasharray="4,4" stroke="var(--border,#dde3ec)" stroke-width="1"/>
+            <text x="${PAD.l-5}" y="${y+4}" text-anchor="end" font-family="Fira Code,monospace" font-size="9" fill="var(--muted,#8a96a8)">${val}</text>`;
   }).join('');
 
-  const bars = groups.map((g,i) => {
-    const x   = PAD.l + barGap + i * (barW + barGap);
-    const h   = Math.max((counts[i] / maxVal) * cH, counts[i] > 0 ? 4 : 0);
+  const bars = groups.map((g, i) => {
+    const cx  = PAD.l + spacing * i + spacing / 2;
+    const x   = cx - barW / 2;
+    const h   = Math.max((counts[i] / maxVal) * cH, counts[i] > 0 ? 6 : 0);
     const y   = PAD.t + cH - h;
+    const pct = Math.round((counts[i] / total) * 100);
     return `
       <g class="bar-group">
-        <rect class="bar-rect" x="${x}" y="${y}" width="${barW}" height="${h}" rx="5" fill="${g.color}" opacity="0.85"/>
-        <text x="${x+barW/2}" y="${y-5}" class="axis-label" text-anchor="middle" style="font-size:11px;font-weight:700;fill:${g.color}">${counts[i]}</text>
-        <text x="${x+barW/2}" y="${H-10}" class="axis-label" text-anchor="middle">${g.label}</text>
+        <rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="6"
+              fill="${g.color}" opacity="0.9"/>
+        <rect x="${x}" y="${y}" width="${barW}" height="${Math.min(h,8)}" rx="6"
+              fill="${g.color}"/>
+        <text x="${cx}" y="${y - 6}" text-anchor="middle"
+              font-family="Fira Code,monospace" font-size="11" font-weight="700"
+              fill="${g.color}">${counts[i]}</text>
+        <text x="${cx}" y="${H - 8}" text-anchor="middle"
+              font-family="Bricolage Grotesque,sans-serif" font-size="9" font-weight="600"
+              fill="var(--muted,#8a96a8)">${pct}%</text>
       </g>`;
   }).join('');
 
-  return `<svg viewBox="0 0 ${W} ${H}" class="chart-svg">${gridLines}${bars}</svg>`;
+  // Colour legend rows (HTML, not SVG — much more readable)
+  const legendRows = groups.map((g, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+                border-radius:8px;background:color-mix(in srgb,${g.color} 8%,transparent);
+                border:1px solid color-mix(in srgb,${g.color} 22%,transparent)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:12px;height:12px;border-radius:3px;background:${g.color};flex-shrink:0"></div>
+        <div>
+          <span style="font-weight:700;font-size:13px">${g.emoji} ${g.label}</span>
+          <span style="color:var(--muted);font-size:11px;margin-left:8px">${g.desc}</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span style="font-family:Fira Code,monospace;font-weight:700;font-size:14px;color:${g.color}">${counts[i]}</span>
+        <span style="font-size:11px;color:var(--muted);font-family:Fira Code,monospace">${Math.round((counts[i]/total)*100)}%</span>
+      </div>
+    </div>`).join('');
+
+  return `
+    <div style="margin-bottom:4px">
+      <div style="font-size:14px;font-weight:800;letter-spacing:-0.01em">${title}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">${explain}</div>
+    </div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;overflow:visible;margin:12px 0 4px">
+      ${gridLines}${bars}
+    </svg>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">${legendRows}</div>`;
 }
 
 // ── ADMIN PERFORMANCE ─────────────────────────────────────────
