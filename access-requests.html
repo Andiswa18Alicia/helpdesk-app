@@ -128,12 +128,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-heigh
 let approvedCount = 0;
 let deniedCount   = 0;
 let prevCount     = 0;
+// Store approved cards so live listener re-render doesn't wipe credentials
+const approvedCards = {};  // reqId -> html string of creds box
+const deniedIds     = new Set();
 
 document.addEventListener('DOMContentLoaded', () => {
   const t = document.documentElement.getAttribute('data-theme');
   document.getElementById('themeBtn').textContent = t === 'dark' ? '☀️' : '🌙';
 
-  // Auth: only Andiswa (senior admin) can access this page
   const sess = SESSION.get();
   if (!sess) return window.location.href = 'login.html';
   if (!SESSION.isSenior()) {
@@ -149,41 +151,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const ok = initFirebase();
   if (!ok) return;
 
-  // Live listener for pending requests
   subscribeToAccessRequests(requests => {
-    // New request notification
-    if (requests.length > prevCount && prevCount > 0) {
-      showNotifBanner(requests.length);
-      // Browser notification
-      if (Notification.permission === 'granted') {
-        new Notification('HelpDesk Pro — New Access Request', {
-          body: 'Someone new is requesting access to HelpDesk Pro.',
-          icon: '🛠️'
-        });
-      }
-    }
+    if (requests.length > prevCount && prevCount > 0) showNotifBanner(requests.length);
     prevCount = requests.length;
     document.getElementById('statPending').textContent = requests.length;
     renderRequests(requests);
   });
 
-  // Request browser notification permission
   if (Notification.permission === 'default') Notification.requestPermission();
-
   updateSessionStats();
 });
 
 function showNotifBanner(count) {
   const b = document.getElementById('notifBanner');
   b.style.display = 'block';
-  b.innerHTML = `
-    <div class="notif-banner">
-      <div class="notif-icon">🔔</div>
-      <div>
-        <div class="notif-title">New access request received!</div>
-        <div class="notif-sub">You now have ${count} pending request${count !== 1 ? 's' : ''} waiting for your review.</div>
-      </div>
-    </div>`;
+  b.innerHTML = `<div class="notif-banner"><div class="notif-icon">🔔</div><div><div class="notif-title">New access request received!</div><div class="notif-sub">You now have ${count} pending request${count!==1?'s':''} waiting.</div></div></div>`;
   setTimeout(() => { b.style.display = 'none'; }, 6000);
 }
 
@@ -194,7 +176,11 @@ function updateSessionStats() {
 
 function renderRequests(requests) {
   const el = document.getElementById('reqList');
-  if (!requests.length) {
+
+  // If no pending AND we have approved cards to show, show them
+  const approvedHtml = Object.values(approvedCards).join('');
+
+  if (!requests.length && !approvedHtml) {
     el.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">✅</div>
@@ -203,7 +189,9 @@ function renderRequests(requests) {
       </div>`;
     return;
   }
-  el.innerHTML = requests.map(req => `
+
+  // Render pending cards + keep approved cards visible
+  const pendingHtml = requests.map(req => `
     <div class="req-card" id="card-${req.id}">
       <div class="req-card-top">
         <div style="display:flex;gap:14px;align-items:flex-start">
@@ -221,58 +209,95 @@ function renderRequests(requests) {
         </div>
       </div>
       <div class="req-actions" id="actions-${req.id}">
-        <button class="btn btn-approve" onclick="doApprove('${req.id}', ${JSON.stringify(req).replace(/"/g,'&quot;')})">
+        <button class="btn btn-approve" id="approve-btn-${req.id}" onclick="doApprove(${JSON.stringify(req.id)}, ${JSON.stringify(JSON.stringify(req))})">
           ✅ Approve & Generate Credentials
         </button>
-        <button class="btn btn-deny" onclick="doDeny('${req.id}')">
+        <button class="btn btn-deny" onclick="doDeny(${JSON.stringify(req.id)})">
           ❌ Deny
         </button>
       </div>
       <div id="result-${req.id}"></div>
     </div>`).join('');
+
+  el.innerHTML = pendingHtml + approvedHtml;
 }
 
-async function doApprove(reqId, req) {
-  const actionsEl = document.getElementById('actions-' + reqId);
-  actionsEl.innerHTML = `<button class="btn btn-approve" disabled><span class="spinner"></span>Approving...</button>`;
+async function doApprove(reqId, reqJson) {
+  const req = JSON.parse(reqJson);
+
+  // Disable buttons immediately
+  const approveBtn = document.getElementById('approve-btn-' + reqId);
+  if (approveBtn) { approveBtn.disabled = true; approveBtn.innerHTML = '<span class="spinner"></span>Approving...'; }
 
   const result = await approveAccessRequest(reqId, req);
-  if (!result.ok) { showToast('Failed to approve request', 'error'); return; }
+
+  if (!result.ok) {
+    showToast('Failed to approve — try again', 'error');
+    if (approveBtn) { approveBtn.disabled = false; approveBtn.innerHTML = '✅ Approve & Generate Credentials'; }
+    return;
+  }
 
   approvedCount++;
   updateSessionStats();
-  showToast('✅ ' + req.name + ' approved! Credentials generated.', 'success');
+  showToast('✅ ' + req.name + ' approved!', 'success');
 
-  actionsEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;color:var(--low);font-size:13px;font-weight:700">✅ Approved</span>`;
-
-  document.getElementById('result-' + reqId).innerHTML = `
-    <div class="creds-box">
-      <div class="creds-title">🎉 Account created — share these credentials with ${escHtml(req.name)}</div>
-      <div class="creds-row">
-        <span><div class="creds-label">Username</div><div class="creds-val">${result.username}</div></span>
-        <button class="copy-btn" onclick="copyText('${result.username}', this)">Copy</button>
+  // Build the credentials card and cache it so the live listener can't wipe it
+  const credsHtml = `
+    <div class="req-card" style="border-color:rgba(34,197,94,0.4)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div class="req-avatar" style="background:linear-gradient(135deg,#22c55e,#16a34a)">${req.name[0].toUpperCase()}</div>
+        <div>
+          <div class="req-name">${escHtml(req.name)}</div>
+          <div class="req-email">${escHtml(req.email)} · ${escHtml(req.department)}</div>
+        </div>
+        <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:#22c55e;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700">✅ Approved</span>
       </div>
-      <div class="creds-row">
-        <span><div class="creds-label">Password (one-time)</div><div class="creds-val">${result.password}</div></span>
-        <button class="copy-btn" onclick="copyText('${result.password}', this)">Copy</button>
+      <div class="creds-box">
+        <div class="creds-title">🎉 Credentials for ${escHtml(req.name)} — share securely</div>
+        <div class="creds-row">
+          <span>
+            <div class="creds-label">Username</div>
+            <div class="creds-val" id="uname-${reqId}">${escHtml(result.username)}</div>
+          </span>
+          <button class="copy-btn" onclick="copyText('${result.username}',this)">Copy</button>
+        </div>
+        <div class="creds-row">
+          <span>
+            <div class="creds-label">Password (one-time)</div>
+            <div class="creds-val" id="pwd-${reqId}">${escHtml(result.password)}</div>
+          </span>
+          <button class="copy-btn" onclick="copyText('${result.password}',this)">Copy</button>
+        </div>
+        <div class="creds-note">⚠️ Share in person or via a secure message. Tell the user to log in at <strong>login.html</strong> and change their password after first login.</div>
       </div>
-      <div class="creds-note">⚠️ Share these credentials securely (e.g. in person or via encrypted message). The user should change their password after first login.</div>
     </div>`;
+
+  // Cache so re-renders keep it visible
+  approvedCards[reqId] = credsHtml;
 }
 
 async function doDeny(reqId) {
   if (!confirm('Are you sure you want to deny this request?')) return;
   await denyAccessRequest(reqId);
   deniedCount++;
+  deniedIds.add(reqId);
   updateSessionStats();
   showToast('Request denied.', 'error');
 }
 
 function copyText(text, btn) {
   navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
     btn.textContent = '✓ Copied!';
     btn.style.color = 'var(--low)';
-    setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000);
+    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
+  }).catch(() => {
+    // Fallback for http
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
   });
 }
 </script>
