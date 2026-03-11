@@ -557,3 +557,48 @@ function subscribeToUserTickets(email, department, callback) {
       callback(filtered);
     }, err => console.error('subscribeToUserTickets error:', err));
 }
+
+// ── CHANGE PASSWORD ──────────────────────────────────────────
+async function changePassword(username, oldPassword, newPassword) {
+  if (!isFirebaseReady()) return { ok: false, msg: 'Firebase not connected' };
+  try {
+    const snap = await _db.collection('users').doc(username.toLowerCase()).get();
+    if (!snap.exists) return { ok: false, msg: 'Account not found' };
+    const data = snap.data();
+    const oldHash = await hashPassword(oldPassword);
+    if (data.passwordHash !== oldHash) return { ok: false, msg: 'Current password is incorrect' };
+    if (newPassword.length < 8) return { ok: false, msg: 'New password must be at least 8 characters' };
+    const newHash = await hashPassword(newPassword);
+    await _db.collection('users').doc(username.toLowerCase()).update({ passwordHash: newHash });
+    return { ok: true };
+  } catch(e) { return { ok: false, msg: e.message }; }
+}
+
+// ── ADD NEW ADMIN (senior admin only) ────────────────────────
+async function addAdmin(name, department) {
+  if (!isFirebaseReady()) return { ok: false, msg: 'Firebase not connected' };
+  if (!SESSION.isSenior()) return { ok: false, msg: 'Only the senior admin can add admins' };
+  try {
+    const username = name.trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+    const existing = await _db.collection('users').doc(username).get();
+    if (existing.exists) return { ok: false, msg: 'An account with that name already exists' };
+    const password = generatePassword();
+    const hash     = await hashPassword(password);
+    await _db.collection('users').doc(username).set({
+      name: name.trim(), username, email: username + '@helpdesk.com',
+      department, role: 'admin', passwordHash: hash, approved: true,
+      created: new Date().toISOString(),
+    });
+    return { ok: true, username, password };
+  } catch(e) { return { ok: false, msg: e.message }; }
+}
+
+// ── SUBSCRIBE TO ALL REQUESTS (for persistent history) ───────
+function subscribeToAllRequests(callback) {
+  if (!isFirebaseReady()) return () => {};
+  return _db.collection('accessRequests')
+    .orderBy('created', 'desc')
+    .onSnapshot(snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      err => console.error('allRequests error:', err));
+}
+  
