@@ -433,14 +433,15 @@ async function loginUser(username, password) {
     return { ok: true, role: 'admin' };
   }
 
-  // Regular user login
-  const snap = await _db.collection('users').doc(username.toLowerCase()).get();
-  if (!snap.exists) return { ok: false, msg: 'Account not found' };
+  // Regular user login — username stored as email (lowercase)
+  const lookupKey = username.toLowerCase().trim();
+  const snap = await _db.collection('users').doc(lookupKey).get();
+  if (!snap.exists) return { ok: false, msg: 'Account not found. Check your username (it is your email address).' };
   const data = snap.data();
-  if (!data.approved) return { ok: false, msg: 'Your account is pending approval' };
+  if (!data.approved) return { ok: false, msg: 'Your account is pending approval by the Senior Admin.' };
   const hash = await hashPassword(password);
-  if (data.passwordHash !== hash) return { ok: false, msg: 'Incorrect password' };
-  SESSION.set({ name: data.name, username: username.toLowerCase(), role: 'user', department: data.department, email: data.email, color: '#64748b', avatar: data.name[0].toUpperCase() });
+  if (data.passwordHash !== hash) return { ok: false, msg: 'Incorrect password. Try again.' };
+  SESSION.set({ name: data.name, username: lookupKey, role: 'user', department: data.department, email: data.email, color: '#64748b', avatar: data.name[0].toUpperCase() });
   return { ok: true, role: 'user' };
 }
 
@@ -495,20 +496,33 @@ function subscribeToAccessRequests(callback) {
 }
 
 async function approveAccessRequest(reqId, req) {
-  if (!isFirebaseReady()) return { ok: false };
-  const username = generateUsername(req.name);
-  const password = generatePassword();
-  const hash = await hashPassword(password);
+  if (!isFirebaseReady()) return { ok: false, msg: 'Firebase not connected' };
+  try {
+    // Username = their email (clean), password = auto-generated
+    const username = req.email.trim().toLowerCase();
+    const password = generatePassword();
+    const hash     = await hashPassword(password);
 
-  // Create user account
-  await _db.collection('users').doc(username).set({
-    name: req.name, username, email: req.email, department: req.department,
-    role: 'user', passwordHash: hash, approved: true,
-    created: new Date().toISOString(),
-  });
-  // Mark request approved
-  await _db.collection('accessRequests').doc(reqId).update({ status: 'approved', approvedAt: new Date().toISOString(), username, generatedPassword: password });
-  return { ok: true, username, password };
+    // Create user account (keyed by email)
+    await _db.collection('users').doc(username).set({
+      name: req.name, username, email: req.email, department: req.department,
+      role: 'user', passwordHash: hash, approved: true,
+      created: new Date().toISOString(),
+    });
+
+    // Mark the access request as approved
+    await _db.collection('accessRequests').doc(reqId).update({
+      status: 'approved',
+      approvedAt: new Date().toISOString(),
+      username,
+      generatedPassword: password,
+    });
+
+    return { ok: true, username, password };
+  } catch(e) {
+    console.error('approveAccessRequest error:', e);
+    return { ok: false, msg: e.message };
+  }
 }
 
 async function denyAccessRequest(reqId) {
