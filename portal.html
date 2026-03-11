@@ -137,9 +137,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-heigh
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
+    <a href="community.html" class="btn btn-ghost btn-sm" style="text-decoration:none">💬 Community</a>
     <button class="btn btn-primary" onclick="openNewTicket()">＋ New Ticket</button>
     <button class="btn btn-ghost btn-sm" onclick="toggleTheme()" id="themeBtn">🌙</button>
-    <button class="btn btn-ghost btn-sm" onclick="openPwModal()" style="margin-right:4px">🔐 Password</button><button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign Out</button>
+    <button class="btn btn-ghost btn-sm" onclick="openSettings()" title="Settings">⚙️</button>
+    <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign Out</button>
   </div>
 </div>
 
@@ -500,32 +502,73 @@ async function submitPortalTicket() {
 }
 
 function doLogout() { SESSION.clear(); window.location.href = 'login.html'; }
+
+async function doChangePw() {
+  const s   = SESSION.get();
+  const old = document.getElementById('pwOld').value;
+  const nw  = document.getElementById('pwNew').value;
+  const cf  = document.getElementById('pwConfirm').value;
+  const al  = document.getElementById('pwAlert');
+  const btn = document.getElementById('pwSaveBtn');
+  const showAlert = (msg, ok) => {
+    al.style.cssText = `display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 14px;border-radius:8px;font-size:13px;background:${ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)'};border:1px solid ${ok?'rgba(34,197,94,0.3)':'rgba(239,68,68,0.3)'};color:${ok?'#22c55e':'#ef4444'}`;
+    al.innerHTML = `<span>${ok?'✅':'❌'}</span><span>${msg}</span>`;
+  };
+  al.style.display = 'none';
+  if (!old||!nw||!cf) { showAlert('Please fill in all fields', false); return; }
+  if (nw !== cf)      { showAlert('New passwords do not match', false); return; }
+  if (nw.length < 8)  { showAlert('New password must be at least 8 characters', false); return; }
+  btn.disabled = true; btn.textContent = 'Saving...';
+  const result = await changePassword(s.username, old, nw);
+  btn.disabled = false; btn.textContent = '🔐 Update Password';
+  if (result.ok) { showAlert('Password changed successfully!', true); setTimeout(closeSettings, 1800); }
+  else { showAlert(result.msg, false); }
+}
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeNewTicket(); });
 </script>
 
-<!-- CHANGE PASSWORD MODAL -->
-<div id="changePwModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);z-index:999;align-items:center;justify-content:center;padding:20px">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:400px;box-shadow:0 24px 64px rgba(0,0,0,0.4)">
-    <div style="padding:20px 24px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
-      <div style="font-size:22px">🔐</div>
-      <div style="flex:1"><div style="font-size:16px;font-weight:800">Change Password</div></div>
-      <button onclick="closePwModal()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px">✕</button>
+<!-- SETTINGS MODAL -->
+<div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);z-index:999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto">
+    <div style="padding:20px 24px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--surface);z-index:1">
+      <div style="font-size:22px">⚙️</div>
+      <div style="flex:1"><div style="font-size:16px;font-weight:800">Settings</div></div>
+      <button onclick="closeSettings()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1">✕</button>
     </div>
     <div style="padding:20px 24px">
-      <div id="pwAlert" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:13px;display:flex;align-items:center;gap:8px"></div>
-      <div style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Current Password</div>
-        <input id="pwOld" type="password" placeholder="Your current password" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:14px;outline:none">
+
+      <!-- Theme -->
+      <div style="margin-bottom:24px">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Appearance</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:9px">
+          <span style="font-size:13px;font-weight:600">Dark / Light Mode</span>
+          <button onclick="toggleTheme();updateThemeBtn()" id="settingsThemeBtn" class="btn btn-ghost btn-sm">🌙 Dark</button>
+        </div>
       </div>
-      <div style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">New Password</div>
-        <input id="pwNew" type="password" placeholder="Min 8 characters" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:14px;outline:none">
+
+      <!-- Change Password -->
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">🔐 Change Password</div>
+        <div id="pwAlert" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:8px;font-size:13px"></div>
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:5px">Current Password</div>
+          <input id="pwOld" type="password" placeholder="Your current password" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:14px;outline:none;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:5px">New Password</div>
+          <input id="pwNew" type="password" placeholder="At least 8 characters" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:14px;outline:none;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+        <div style="margin-bottom:16px">
+          <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:5px">Confirm New Password</div>
+          <input id="pwConfirm" type="password" placeholder="Re-enter new password" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:14px;outline:none;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+        <button id="pwSaveBtn" onclick="doChangePw()" style="width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:9px;font-family:var(--font-ui);font-size:14px;font-weight:700;cursor:pointer">🔐 Update Password</button>
       </div>
-      <div style="margin-bottom:20px">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Confirm New Password</div>
-        <input id="pwConfirm" type="password" placeholder="Re-enter new password" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:14px;outline:none">
+
+      <!-- Sign out -->
+      <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
+        <button onclick="doLogout()" style="width:100%;padding:11px;background:rgba(239,68,68,0.1);color:var(--critical);border:1px solid rgba(239,68,68,0.3);border-radius:9px;font-family:var(--font-ui);font-size:14px;font-weight:700;cursor:pointer">Sign Out</button>
       </div>
-      <button id="pwSaveBtn" onclick="doChangePw()" style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:9px;font-family:var(--font-ui);font-size:14px;font-weight:700;cursor:pointer">🔐 Update Password</button>
     </div>
   </div>
 </div>
