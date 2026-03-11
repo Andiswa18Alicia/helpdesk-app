@@ -429,8 +429,11 @@ const SESSION = {
 async function loginUser(username, password) {
   if (!isFirebaseReady()) return { ok: false, msg: 'Firebase not connected' };
 
-  // Check if logging in as an admin (username matches admin name lowercased)
-  const adminMatch = ADMINS.find(a => a.name.toLowerCase() === username.toLowerCase());
+  // Check if logging in as an admin (by name OR by their helpdesk email)
+  const adminMatch = ADMINS.find(a =>
+    a.name.toLowerCase() === username.toLowerCase() ||
+    (a.name.toLowerCase() + '@helpdesk.com') === username.toLowerCase()
+  );
   if (adminMatch) {
     // Admin passwords stored in Firestore users collection
     const snap = await _db.collection('users').doc(username.toLowerCase()).get();
