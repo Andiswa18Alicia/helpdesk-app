@@ -72,6 +72,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-heigh
 /* NOTIF BANNER */
 .notif-banner{background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(249,115,22,0.1));border:1px solid rgba(245,158,11,0.4);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px;margin-bottom:24px;animation:slideIn 0.4s ease}
 @keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .notif-icon{font-size:28px}
 .notif-title{font-size:14px;font-weight:700;color:var(--medium)}
 .notif-sub{font-size:12px;color:var(--text2);margin-top:2px}
@@ -174,11 +175,15 @@ function updateSessionStats() {
   document.getElementById('statDenied').textContent   = deniedCount;
 }
 
+// Store pending requests by ID — safe reference for buttons
+const pendingMap = {};
+
 function renderRequests(requests) {
   const el = document.getElementById('reqList');
-
-  // If no pending AND we have approved cards to show, show them
   const approvedHtml = Object.values(approvedCards).join('');
+
+  // Update pendingMap
+  requests.forEach(r => pendingMap[r.id] = r);
 
   if (!requests.length && !approvedHtml) {
     el.innerHTML = `
@@ -190,7 +195,6 @@ function renderRequests(requests) {
     return;
   }
 
-  // Render pending cards + keep approved cards visible
   const pendingHtml = requests.map(req => `
     <div class="req-card" id="card-${req.id}">
       <div class="req-card-top">
@@ -209,10 +213,10 @@ function renderRequests(requests) {
         </div>
       </div>
       <div class="req-actions" id="actions-${req.id}">
-        <button class="btn btn-approve" id="approve-btn-${req.id}" onclick="doApprove(${JSON.stringify(req.id)}, ${JSON.stringify(JSON.stringify(req))})">
+        <button class="btn btn-approve" id="approve-btn-${req.id}" onclick="doApprove('${req.id}')">
           ✅ Approve & Generate Credentials
         </button>
-        <button class="btn btn-deny" onclick="doDeny(${JSON.stringify(req.id)})">
+        <button class="btn btn-deny" id="deny-btn-${req.id}" onclick="doDeny('${req.id}')">
           ❌ Deny
         </button>
       </div>
@@ -222,18 +226,30 @@ function renderRequests(requests) {
   el.innerHTML = pendingHtml + approvedHtml;
 }
 
-async function doApprove(reqId, reqJson) {
-  const req = JSON.parse(reqJson);
+async function doApprove(reqId) {
+  // Look up req safely from the map — no JSON passing through HTML attributes
+  const req = pendingMap[reqId];
+  if (!req) { showToast('Request not found — please refresh', 'error'); return; }
 
-  // Disable buttons immediately
   const approveBtn = document.getElementById('approve-btn-' + reqId);
+  const denyBtn    = document.getElementById('deny-btn-' + reqId);
   if (approveBtn) { approveBtn.disabled = true; approveBtn.innerHTML = '<span class="spinner"></span>Approving...'; }
+  if (denyBtn)    { denyBtn.disabled = true; }
 
-  const result = await approveAccessRequest(reqId, req);
-
-  if (!result.ok) {
-    showToast('Failed to approve — try again', 'error');
+  let result;
+  try {
+    result = await approveAccessRequest(reqId, req);
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
     if (approveBtn) { approveBtn.disabled = false; approveBtn.innerHTML = '✅ Approve & Generate Credentials'; }
+    if (denyBtn)    { denyBtn.disabled = false; }
+    return;
+  }
+
+  if (!result || !result.ok) {
+    showToast('Failed to approve — check console', 'error');
+    if (approveBtn) { approveBtn.disabled = false; approveBtn.innerHTML = '✅ Approve & Generate Credentials'; }
+    if (denyBtn)    { denyBtn.disabled = false; }
     return;
   }
 
@@ -241,39 +257,48 @@ async function doApprove(reqId, reqJson) {
   updateSessionStats();
   showToast('✅ ' + req.name + ' approved!', 'success');
 
-  // Build the credentials card and cache it so the live listener can't wipe it
+  // Build credentials card — username is the email, password is generated
   const credsHtml = `
-    <div class="req-card" style="border-color:rgba(34,197,94,0.4)">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <div class="req-card" style="border-color:rgba(34,197,94,0.4);animation:fadeIn 0.3s ease">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
         <div class="req-avatar" style="background:linear-gradient(135deg,#22c55e,#16a34a)">${req.name[0].toUpperCase()}</div>
-        <div>
+        <div style="flex:1">
           <div class="req-name">${escHtml(req.name)}</div>
           <div class="req-email">${escHtml(req.email)} · ${escHtml(req.department)}</div>
         </div>
-        <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:#22c55e;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700">✅ Approved</span>
+        <span style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:#22c55e;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700">✅ Approved</span>
       </div>
       <div class="creds-box">
-        <div class="creds-title">🎉 Credentials for ${escHtml(req.name)} — share securely</div>
+        <div class="creds-title">🎉 Account created — give these to ${escHtml(req.name)}</div>
         <div class="creds-row">
           <span>
-            <div class="creds-label">Username</div>
-            <div class="creds-val" id="uname-${reqId}">${escHtml(result.username)}</div>
+            <div class="creds-label">Username (their email)</div>
+            <div class="creds-val">${escHtml(result.username)}</div>
           </span>
-          <button class="copy-btn" onclick="copyText('${result.username}',this)">Copy</button>
+          <button class="copy-btn" onclick="doCopy('${result.username}',this)">📋 Copy</button>
         </div>
         <div class="creds-row">
           <span>
-            <div class="creds-label">Password (one-time)</div>
-            <div class="creds-val" id="pwd-${reqId}">${escHtml(result.password)}</div>
+            <div class="creds-label">Temporary Password</div>
+            <div class="creds-val" style="letter-spacing:0.1em">${escHtml(result.password)}</div>
           </span>
-          <button class="copy-btn" onclick="copyText('${result.password}',this)">Copy</button>
+          <button class="copy-btn" onclick="doCopy('${result.password}',this)">📋 Copy</button>
         </div>
-        <div class="creds-note">⚠️ Share in person or via a secure message. Tell the user to log in at <strong>login.html</strong> and change their password after first login.</div>
+        <div class="creds-note">
+          🔐 They log in at <strong>login.html</strong> with the above credentials.<br>
+          They can update their username and password after logging in.
+        </div>
       </div>
     </div>`;
 
-  // Cache so re-renders keep it visible
   approvedCards[reqId] = credsHtml;
+  // Re-render so creds show immediately (pending list will already have updated via listener)
+  const resultEl = document.getElementById('result-' + reqId);
+  if (resultEl) {
+    resultEl.innerHTML = `<div style="margin-top:12px">${credsHtml.trim()}</div>`;
+    const actEl = document.getElementById('actions-' + reqId);
+    if (actEl) actEl.innerHTML = '<span style="color:var(--low);font-weight:700;font-size:13px">✅ Approved</span>';
+  }
 }
 
 async function doDeny(reqId) {
@@ -285,20 +310,23 @@ async function doDeny(reqId) {
   showToast('Request denied.', 'error');
 }
 
-function copyText(text, btn) {
-  navigator.clipboard.writeText(text).then(() => {
-    const orig = btn.textContent;
+function doCopy(text, btn) {
+  const orig = btn.textContent;
+  const doIt = () => {
     btn.textContent = '✓ Copied!';
     btn.style.color = 'var(--low)';
     setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
-  }).catch(() => {
-    // Fallback for http
-    const ta = document.createElement('textarea');
-    ta.value = text; document.body.appendChild(ta);
-    ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-    btn.textContent = '✓ Copied!';
-    setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
-  });
+  };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(doIt).catch(() => fallback(text, doIt));
+  } else { fallback(text, doIt); }
+}
+function fallback(text, cb) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try { document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta); cb();
 }
 </script>
 </body>
