@@ -570,7 +570,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     seedDemoData().then(() => startRealtime());
   } else {
-    document.getElementById('topbar-sub').textContent = '⚠️ Firebase not configured — see app.js';
+    const msg = typeof _firebaseError !== 'undefined' && _firebaseError
+      ? '⚠️ ' + _firebaseError
+      : '⚠️ Firebase SDK not loaded — check your internet connection';
+    document.getElementById('topbar-sub').textContent = msg;
+    document.getElementById('topbar-sub').style.color = 'var(--critical)';
+    console.error('Firebase failed:', msg);
   }
 });
 
