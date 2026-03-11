@@ -62,7 +62,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-heigh
     <div id="loginAlert" style="display:none"></div>
     <div class="form-group">
       <label class="form-label">Username</label>
-      <input class="form-input" id="loginUser" placeholder="your.username" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+      <input class="form-input" id="loginUser" placeholder="andiswa / your.email@company.co.za" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">Admins: use your first name &nbsp;·&nbsp; Staff: use your email address</div>
     </div>
     <div class="form-group">
       <label class="form-label">Password</label>
@@ -130,12 +131,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const ok = initFirebase();
   if (!ok) { console.error('Firebase failed to init'); return; }
 
+  // Clear any stale/broken session first
+  const existing = SESSION.get();
+  if (existing && !existing.role) SESSION.clear();
+
   // Create admin accounts if they don't exist yet (runs silently)
   await ensureAdminAccounts();
 
-  // If already logged in, redirect straight away
+  // If already logged in with valid session, redirect straight away
   const sess = SESSION.get();
-  if (sess) {
+  if (sess && sess.role) {
     window.location.href = sess.role === 'admin' ? 'index.html' : 'portal.html';
   }
 });
