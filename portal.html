@@ -296,10 +296,10 @@ let session        = null;
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('themeBtn').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
   const fbOk = initFirebase();
-  if (!fbOk) { window.location.href = 'login.html'; return; }
-  session = getSession();
+  session = SESSION.get();
   if (!session) { window.location.href = 'login.html'; return; }
   if (session.role === 'admin') { window.location.href = 'index.html'; return; }
+  if (!fbOk) { showToast('Firebase not connected — retrying...', 'error'); setTimeout(() => location.reload(), 3000); return; }
 
   // Set user info in topbar
   const initials = session.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
@@ -499,7 +499,7 @@ async function submitPortalTicket() {
   btn.disabled = false; btn.innerHTML = 'Submit Ticket';
 }
 
-function doLogout() { clearSession(); window.location.href = 'login.html'; }
+function doLogout() { SESSION.clear(); window.location.href = 'login.html'; }
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeNewTicket(); });
 </script>
 </body>
