@@ -207,6 +207,9 @@ let replyTo      = null;
 let unsub        = null;
 let currentDmWith= null;
 let dmUnsub      = null;
+let dmUnreadMap  = {};   // username -> unread count
+let dmLastSeen   = {};   // username -> last seen ISO timestamp (stored in localStorage)
+let dmUnsubMap   = {};   // username -> unsub function for background listeners
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('themeBtn').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
@@ -217,6 +220,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!ok) { showToast('Firebase not connected', 'error'); return; }
   document.getElementById('liveBadge').style.display = 'flex';
   document.getElementById('deptChLabel').textContent = sess.department || 'dept';
+  // Load last-seen timestamps from localStorage
+  try { dmLastSeen = JSON.parse(localStorage.getItem('hd_dm_seen') || '{}'); } catch(e) { dmLastSeen = {}; }
   loadDmList();
   switchChannel('general');
 });
@@ -251,23 +256,60 @@ function switchChannel(chId) {
   }, err => { console.error(err); showToast('Error loading channel', 'error'); });
 }
 
+let allDmUsers = [];
+
 async function loadDmList() {
   try {
     const snap = await _db.collection('users').get();
-    const users = snap.docs.map(d => d.data()).filter(u => u.username !== sess.username);
-    const dmListEl = document.getElementById('dmList');
-    if (!users.length) { dmListEl.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:4px 6px">No other users yet</div>'; return; }
-    dmListEl.innerHTML = users.map(u => {
-      const admin = ADMINS.find(a => a.name === u.name);
-      const color = admin ? admin.color : '#64748b';
-      const initial = (u.name || '?')[0].toUpperCase();
-      return `<div class="ch-item" id="dm-${escHtml(u.username)}" onclick="openDm('${escHtml(u.username)}','${escHtml(u.name)}','${color}')">
-        <span style="width:24px;height:24px;border-radius:50%;background:${color};display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0">${initial}</span>
-        <span class="ch-label" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${escHtml(u.name)}</span>
-        <span class="ch-unread dm-unread" id="dm-unread-${escHtml(u.username)}" style="display:none"></span>
-      </div>`;
-    }).join('');
+    allDmUsers = snap.docs.map(d => d.data()).filter(u => u.username !== sess.username);
+    if (!allDmUsers.length) {
+      document.getElementById('dmList').innerHTML = '<div style="font-size:11px;color:var(--muted);padding:4px 6px">No other users yet</div>';
+      return;
+    }
+    renderDmList();
+    // Set up background listeners for each DM conversation to track unreads
+    allDmUsers.forEach(u => {
+      const pair = [sess.username, u.username].sort().join('__');
+      const col  = 'dm_' + pair;
+      if (dmUnsubMap[u.username]) dmUnsubMap[u.username]();
+      dmUnsubMap[u.username] = _db.collection(col).orderBy('created', 'asc')
+        .onSnapshot(snap => {
+          // Count messages from the other person newer than last seen
+          const lastSeen = dmLastSeen[u.username] || '1970-01-01';
+          const unread = snap.docs.filter(d => {
+            const data = d.data();
+            return data.username !== sess.username && data.created > lastSeen;
+          }).length;
+          dmUnreadMap[u.username] = unread;
+          // Update the badge in the DM list
+          renderDmList();
+        }, () => {});
+    });
   } catch(e) { console.error('loadDmList:', e); }
+}
+
+function renderDmList() {
+  // Sort: users with unreads first, then alphabetically
+  const sorted = [...allDmUsers].sort((a, b) => {
+    const ua = dmUnreadMap[a.username] || 0;
+    const ub = dmUnreadMap[b.username] || 0;
+    if (ub !== ua) return ub - ua; // unreads first
+    return a.name.localeCompare(b.name);
+  });
+
+  const activeDm = currentDmWith ? currentDmWith.username : null;
+  document.getElementById('dmList').innerHTML = sorted.map(u => {
+    const admin   = ADMINS.find(a => a.name === u.name);
+    const color   = admin ? admin.color : '#64748b';
+    const initial = (u.name || '?')[0].toUpperCase();
+    const unread  = dmUnreadMap[u.username] || 0;
+    const isActive = u.username === activeDm;
+    return `<div class="ch-item${isActive?' active':''}" id="dm-${u.username}" onclick="openDm('${u.username}','${escHtml(u.name)}','${color}')">
+      <span style="width:24px;height:24px;border-radius:50%;background:${color};display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0">${initial}</span>
+      <span class="ch-label" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;${unread>0?'font-weight:700;color:var(--text)':''}">${escHtml(u.name)}</span>
+      ${unread > 0 ? `<span class="ch-unread dm-unread">${unread}</span>` : ''}
+    </div>`;
+  }).join('');
 }
 
 function openDm(username, name, color) {
@@ -293,6 +335,14 @@ function openDm(username, name, color) {
     allMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderMessages();
     document.getElementById('topChannelSub').textContent = 'Private · ' + allMessages.length + ' messages';
+    // Mark all as seen — record the latest message timestamp
+    if (allMessages.length) {
+      const latest = allMessages[allMessages.length - 1].created;
+      dmLastSeen[username] = latest;
+      localStorage.setItem('hd_dm_seen', JSON.stringify(dmLastSeen));
+      dmUnreadMap[username] = 0;
+      renderDmList();
+    }
   }, err => console.error('DM error:', err));
 }
 
