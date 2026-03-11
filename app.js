@@ -24,14 +24,13 @@ let _db = null;
 let _firebaseReady = false;
 
 function initFirebase() {
-  // Check if config has been filled in
   if (FIREBASE_CONFIG.apiKey.startsWith('PASTE_')) {
-    console.warn('Firebase config not set — running in offline mode');
+    _firebaseError = 'Firebase config not set';
     return false;
   }
   try {
     if (typeof firebase === 'undefined') {
-      console.warn('Firebase SDK not loaded');
+      _firebaseError = 'Firebase SDK failed to load — check internet connection';
       return false;
     }
     if (!firebase.apps || !firebase.apps.length) {
@@ -39,13 +38,23 @@ function initFirebase() {
     }
     _db = firebase.firestore();
     _firebaseReady = true;
-    console.log('✅ Firebase connected');
+    // Test actual connectivity with a quick read
+    _db.collection('meta').doc('ping').get()
+      .then(() => console.log('✅ Firebase connected and responding'))
+      .catch(e => {
+        console.error('Firestore read test failed:', e.code, e.message);
+        // Show error on page if topbar-sub exists
+        const sub = document.getElementById('topbar-sub');
+        if (sub) sub.textContent = '⚠️ Firestore error: ' + e.code;
+      });
     return true;
   } catch (e) {
+    _firebaseError = e.message;
     console.error('Firebase init error:', e);
     return false;
   }
 }
+let _firebaseError = '';
 
 function isFirebaseReady() { return _firebaseReady && _db !== null; }
 
