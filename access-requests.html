@@ -96,6 +96,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-heigh
   </div>
   <div style="display:flex;align-items:center;gap:10px">
     <div class="live-badge"><span class="live-dot"></span>Live</div>
+    <button class="btn btn-primary" onclick="openAddAdmin()" style="font-size:12px">➕ Add Admin</button>
     <button class="btn btn-ghost" onclick="toggleTheme()" id="themeBtn">🌙</button>
   </div>
 </div>
@@ -122,6 +123,38 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-heigh
     <div class="empty-state">
       <div class="empty-icon">⏳</div>
       <div class="empty-title">Loading requests...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD ADMIN MODAL -->
+<div id="addAdminModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);z-index:998;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:420px;box-shadow:0 32px 80px rgba(0,0,0,0.5)">
+    <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <div style="font-size:22px">👑</div>
+      <div style="flex:1"><div style="font-size:16px;font-weight:800">Add New Admin</div><div style="font-size:12px;color:var(--muted)">Credentials will be auto-generated</div></div>
+      <button onclick="closeAddAdmin()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px">✕</button>
+    </div>
+    <div style="padding:20px 24px">
+      <div id="addAdminAlert" style="display:none;margin-bottom:14px"></div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Full Name *</div>
+        <input id="newAdminName" class="form-input" placeholder="e.g. Thabo Nkosi" style="width:100%">
+      </div>
+      <div style="margin-bottom:20px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Department *</div>
+        <select id="newAdminDept" class="form-input" style="width:100%">
+          <option value="">Select department...</option>
+          <option value="Software">💻 Software</option>
+          <option value="Hardware">🖥️ Hardware</option>
+          <option value="Network">🌐 Network</option>
+          <option value="Security">🔒 Security</option>
+          <option value="Support">🎧 Support</option>
+        </select>
+      </div>
+      <button id="addAdminBtn" onclick="doAddAdmin()" style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:9px;font-family:var(--font-ui);font-size:14px;font-weight:700;cursor:pointer">
+        👑 Create Admin Account
+      </button>
     </div>
   </div>
 </div>
@@ -202,11 +235,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const ok = initFirebase();
   if (!ok) return;
 
-  subscribeToAccessRequests(requests => {
-    if (requests.length > prevCount && prevCount > 0) showNotifBanner(requests.length);
-    prevCount = requests.length;
-    document.getElementById('statPending').textContent = requests.length;
-    renderRequests(requests);
+  // Subscribe to ALL requests (pending + history)
+  subscribeToAllRequests(all => {
+    const pending  = all.filter(r => r.status === 'pending');
+    const approved = all.filter(r => r.status === 'approved');
+    const denied   = all.filter(r => r.status === 'denied');
+    if (pending.length > prevCount && prevCount >= 0) {
+      if (prevCount > 0) showNotifBanner(pending.length);
+    }
+    prevCount = pending.length;
+    document.getElementById('statPending').textContent  = pending.length;
+    document.getElementById('statApproved').textContent = approved.length;
+    document.getElementById('statDenied').textContent   = denied.length;
+    renderRequests(pending, approved, denied);
   });
 
   if (Notification.permission === 'default') Notification.requestPermission();
@@ -227,23 +268,39 @@ function updateSessionStats() {
 
 // Store pending requests by ID — safe reference for buttons
 const pendingMap = {};
+let historyTab = 'approved'; // 'approved' | 'denied'
 
-function renderRequests(requests) {
+function setHistoryTab(tab) {
+  historyTab = tab;
+  document.getElementById('tab-approved').classList.toggle('active', tab === 'approved');
+  document.getElementById('tab-denied').classList.toggle('active',   tab === 'denied');
+  const lastAll = window._lastAll;
+  if (lastAll) renderRequests(lastAll.pending, lastAll.approved, lastAll.denied);
+}
+
+function renderRequests(requests, approved, denied) {
+  window._lastAll = { pending: requests, approved, denied };
   const el = document.getElementById('reqList');
-  const approvedHtml = Object.values(approvedCards).join('');
-
-  // Update pendingMap
   requests.forEach(r => pendingMap[r.id] = r);
 
-  if (!requests.length && !approvedHtml) {
-    el.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">✅</div>
-        <div class="empty-title">All clear!</div>
-        <div class="empty-sub">No pending access requests right now.<br>New requests will appear here in real-time.</div>
-      </div>`;
-    return;
-  }
+  // Build history section
+  const histList = historyTab === 'approved' ? approved : denied;
+  const histHtml = histList.length ? histList.map(r => `
+    <div class="req-card" style="border-color:${r.status==='approved'?'rgba(34,197,94,0.3)':'rgba(239,68,68,0.2)'}">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="req-avatar" style="background:${r.status==='approved'?'linear-gradient(135deg,#22c55e,#16a34a)':'linear-gradient(135deg,#ef4444,#b91c1c)'}">${(r.name||'?')[0].toUpperCase()}</div>
+        <div style="flex:1">
+          <div class="req-name">${escHtml(r.name)}</div>
+          <div class="req-email">${escHtml(r.email)}</div>
+          <div class="req-dept-chip">🏢 ${escHtml(r.department)}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700;font-size:12px;color:${r.status==='approved'?'#22c55e':'#ef4444'}">${r.status==='approved'?'✅ Approved':'❌ Denied'}</div>
+          ${r.username ? `<div style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">${escHtml(r.username)}</div>` : ''}
+          <div style="font-size:11px;color:var(--muted)">${r.approvedAt||r.deniedAt ? timeAgo(r.approvedAt||r.deniedAt) : ''}</div>
+        </div>
+      </div>
+    </div>`).join('') : `<div class="empty-state" style="padding:32px"><div class="empty-icon" style="font-size:32px">${historyTab==='approved'?'📋':'📋'}</div><div class="empty-title" style="font-size:14px">No ${historyTab} requests yet</div></div>`;
 
   const pendingHtml = requests.map(req => `
     <div class="req-card" id="card-${req.id}">
@@ -273,7 +330,17 @@ function renderRequests(requests) {
       <div id="result-${req.id}"></div>
     </div>`).join('');
 
-  el.innerHTML = pendingHtml + approvedHtml;
+  el.innerHTML = pendingHtml + `
+    <div style="margin-top:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:var(--text2)">Request History</div>
+        <div style="display:flex;gap:6px">
+          <button id="tab-approved" class="btn btn-ghost active" style="font-size:11px;padding:4px 10px" onclick="setHistoryTab('approved')">✅ Approved (${approved.length})</button>
+          <button id="tab-denied"   class="btn btn-ghost"        style="font-size:11px;padding:4px 10px" onclick="setHistoryTab('denied')">❌ Denied (${denied.length})</button>
+        </div>
+      </div>
+      ${histHtml}
+    </div>`;
 }
 
 async function doApprove(reqId) {
@@ -391,6 +458,32 @@ function doCopy(text, btn) {
     navigator.clipboard.writeText(text).then(doIt).catch(() => fallback(text, doIt));
   } else { fallback(text, doIt); }
 }
+function openAddAdmin()  { document.getElementById('addAdminModal').style.display='flex'; document.getElementById('addAdminAlert').style.display='none'; document.getElementById('newAdminName').value=''; document.getElementById('newAdminDept').value=''; }
+function closeAddAdmin() { document.getElementById('addAdminModal').style.display='none'; }
+
+async function doAddAdmin() {
+  const name = document.getElementById('newAdminName').value.trim();
+  const dept = document.getElementById('newAdminDept').value;
+  const alertEl = document.getElementById('addAdminAlert');
+  const btn     = document.getElementById('addAdminBtn');
+  if (!name || !dept) {
+    alertEl.style.display='block'; alertEl.className='alert alert-error'; alertEl.innerHTML='<span>❌</span><span>Please fill in all fields</span>'; return;
+  }
+  btn.disabled=true; btn.textContent='Creating...';
+  const result = await addAdmin(name, dept);
+  btn.disabled=false; btn.textContent='👑 Create Admin Account';
+  if (!result.ok) {
+    alertEl.style.display='block'; alertEl.className='alert alert-error'; alertEl.innerHTML=`<span>❌</span><span>${escHtml(result.msg)}</span>`; return;
+  }
+  closeAddAdmin();
+  // Show credentials modal
+  document.getElementById('credsSubtitle').textContent = 'Admin credentials for ' + name;
+  document.getElementById('credsUsername').textContent = result.username;
+  document.getElementById('credsPassword').textContent = result.password;
+  document.getElementById('credsModal').style.display  = 'flex';
+  showToast('👑 Admin account created for ' + name, 'success');
+}
+
 function fallback(text, cb) {
   const ta = document.createElement('textarea');
   ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
