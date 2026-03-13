@@ -400,22 +400,45 @@ const STATUS_ORDER   = { open:0,inprogress:1,resolved:2 };
 
 // ---- INIT ----
 async function init() {
+  // Auth guard — redirect non-admins
+  const session = SESSION.get();
+  if (!session) { window.location.href = 'login.html'; return; }
+  if (session.role !== 'admin') { window.location.href = 'portal.html'; return; }
+
   updateThemeBtn();
   setShareUrl();
 
-  // Wait for Firebase then seed + subscribe
-  if (isFirebaseReady()) {
-    await seedDemoData();
-    startRealtime();
-  } else {
-    document.getElementById('topbar-sub').textContent = '⚠️ Firebase not configured — see app.js';
+  const fbOk = initFirebase();
+  if (!fbOk) {
+    document.getElementById('topbar-sub').textContent = '⚠️ Firebase error — check app.js';
     document.getElementById('ticketList').innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">🔥</div>
         <div class="empty-title">Firebase not connected</div>
         <div class="empty-sub">Open app.js and paste your Firebase config to get started.</div>
       </div>`;
+    return;
   }
+
+  // Wait until Firestore is truly ready before seeding + subscribing
+  function waitForFirebase() {
+    if (isFirebaseReady()) {
+      ensureAdminAccounts();
+      seedDemoData().then(() => startRealtime());
+      document.getElementById('topbar-sub').textContent = 'Live — all tickets';
+    } else if (_firebaseError) {
+      document.getElementById('topbar-sub').textContent = '⚠️ Firebase error — check app.js';
+      document.getElementById('ticketList').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🔥</div>
+          <div class="empty-title">Firebase not connected</div>
+          <div class="empty-sub">Open app.js and paste your Firebase config to get started.</div>
+        </div>`;
+    } else {
+      setTimeout(waitForFirebase, 400);
+    }
+  }
+  waitForFirebase();
 }
 
 function setShareUrl() {
