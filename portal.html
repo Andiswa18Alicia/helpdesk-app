@@ -683,6 +683,18 @@ async function submitPortalTicket() {
 
 function doLogout() { SESSION.clear(); window.location.href = 'login.html'; }
 
+function openSettings() {
+  const modal = document.getElementById('settingsModal');
+  modal.style.display = 'flex';
+  // Reset form
+  ['pwOld','pwNew','pwConfirm'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('pwAlert').style.display = 'none';
+  updateThemeBtn();
+}
+function closeSettings() {
+  document.getElementById('settingsModal').style.display = 'none';
+}
+
 function updateThemeBtn() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const icon = document.getElementById('themeIcon');
