@@ -170,15 +170,29 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-heigh
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
-    <a href="community.html" class="btn btn-ghost btn-sm" style="text-decoration:none">💬 Community</a>
     <button class="btn btn-primary" onclick="openNewTicket()">＋ New Ticket</button>
-    <button class="btn btn-ghost btn-sm" onclick="toggleTheme()" id="themeBtn">🌙</button>
-    <button class="btn btn-ghost btn-sm" onclick="openSettings()" title="Settings">⚙️</button>
-    <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign Out</button>
   </div>
 </div>
 
-<div class="content">
+<!-- RIGHT SIDEBAR NAV -->
+<div style="position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:100;display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--border);border-right:none;border-radius:12px 0 0 12px;padding:10px 8px;box-shadow:-2px 0 16px rgba(0,0,0,0.08)">
+  <a href="community.html" style="display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;padding:8px 10px;border-radius:8px;color:var(--text2);transition:all 0.2s;font-size:10px;font-weight:600" title="Community" onmouseover="this.style.background='var(--surface2)';this.style.color='var(--accent)'" onmouseout="this.style.background='none';this.style.color='var(--text2)'">
+    <span style="font-size:18px">💬</span>Community
+  </a>
+  <div style="height:1px;width:80%;background:var(--border)"></div>
+  <button onclick="toggleTheme();updateThemeBtn()" id="themeBtn" title="Toggle theme" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 10px;border-radius:8px;background:none;border:none;cursor:pointer;color:var(--text2);font-size:10px;font-weight:600;transition:all 0.2s;font-family:var(--font-ui)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">
+    <span style="font-size:18px">🌙</span>Theme
+  </button>
+  <button onclick="openSettings()" title="Settings" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 10px;border-radius:8px;background:none;border:none;cursor:pointer;color:var(--text2);font-size:10px;font-weight:600;transition:all 0.2s;font-family:var(--font-ui)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">
+    <span style="font-size:18px">⚙️</span>Settings
+  </button>
+  <div style="height:1px;width:80%;background:var(--border)"></div>
+  <button onclick="doLogout()" title="Sign out" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 10px;border-radius:8px;background:none;border:none;cursor:pointer;color:var(--critical);font-size:10px;font-weight:600;transition:all 0.2s;font-family:var(--font-ui)" onmouseover="this.style.background='rgba(239,68,68,0.08)'" onmouseout="this.style.background='none'">
+    <span style="font-size:18px">🚪</span>Sign Out
+  </button>
+</div>
+
+<div class="content" style="margin-right:70px">
   <!-- STATS -->
   <div class="stats-row" id="statsRow">
     <div class="stat-card" style="--sc:var(--accent)"><div class="stat-icon">🎫</div><div class="stat-num" id="st-total">—</div><div class="stat-label">My Tickets</div></div>
@@ -393,7 +407,8 @@ let session        = null;
 
 // ── INIT ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('themeBtn').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.querySelector('#themeBtn span').textContent = isDark ? '☀️' : '🌙';
   const fbOk = initFirebase();
   session = SESSION.get();
   if (!session) { window.location.href = 'login.html'; return; }
@@ -616,6 +631,14 @@ async function submitPortalTicket() {
 }
 
 function doLogout() { SESSION.clear(); window.location.href = 'login.html'; }
+
+function updateThemeBtn() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const icon = document.querySelector('#themeBtn span');
+  if (icon) icon.textContent = isDark ? '☀️' : '🌙';
+  const settingsBtn = document.getElementById('settingsThemeBtn');
+  if (settingsBtn) settingsBtn.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+}
 
 // ── IT TIPS ────────────────────────────────────────────────
 const ALL_TIPS = [
