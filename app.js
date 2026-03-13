@@ -601,4 +601,3 @@ function subscribeToAllRequests(callback) {
     .onSnapshot(snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
       err => console.error('allRequests error:', err));
 }
-  
