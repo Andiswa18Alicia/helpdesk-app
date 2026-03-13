@@ -124,6 +124,39 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-heigh
 .spin-sm{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite}
 
 @media(max-width:600px){.stats-row{grid-template-columns:1fr 1fr}.sh-cat-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* ANNOUNCEMENTS */
+.ann-item{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start}
+.ann-item:last-child{border-bottom:none}
+.ann-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:5px}
+.ann-text{font-size:13px;line-height:1.5;color:var(--text)}
+.ann-time{font-size:11px;color:var(--muted);margin-top:3px}
+
+/* NOTIFICATIONS */
+.notif-item{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;transition:background var(--transition)}
+.notif-item:last-child{border-bottom:none}
+.notif-item.unread{background:rgba(14,165,233,0.04)}
+.notif-icon{font-size:18px;flex-shrink:0;line-height:1}
+.notif-body{flex:1;min-width:0}
+.notif-title{font-size:13px;font-weight:600;color:var(--text)}
+.notif-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.notif-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:5px}
+
+/* TIPS */
+.tip-card{padding:16px 18px;border-right:1px solid var(--border)}
+.tip-card:last-child{border-right:none}
+.tip-icon{font-size:22px;margin-bottom:8px}
+.tip-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px}
+.tip-body{font-size:12px;color:var(--text2);line-height:1.5}
+
+/* TIMELINE */
+.tl-item{display:flex;gap:12px;padding-bottom:18px;position:relative}
+.tl-item::before{content:'';position:absolute;left:11px;top:22px;bottom:0;width:2px;background:var(--border)}
+.tl-item:last-child::before{display:none}
+.tl-dot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;z-index:1}
+.tl-content{flex:1;min-width:0}
+.tl-title{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-sub{font-size:11px;color:var(--muted);margin-top:2px}
 </style>
 </head>
 <body>
@@ -154,6 +187,50 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-heigh
     <div class="stat-card" style="--sc:var(--resolved)"><div class="stat-icon">✅</div><div class="stat-num" id="st-res">—</div><div class="stat-label">Resolved</div></div>
   </div>
 
+  <!-- TOP ROW: ANNOUNCEMENTS + NOTIFICATIONS -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+    <!-- IT ANNOUNCEMENTS -->
+    <div class="section-card">
+      <div class="section-head">
+        <div>
+          <div class="section-title">📢 IT Announcements</div>
+          <div class="section-sub">Latest from your IT team</div>
+        </div>
+        <a href="community.html" style="font-size:11px;color:var(--accent);font-weight:600;text-decoration:none">View all →</a>
+      </div>
+      <div id="announcementsList" style="padding:0">
+        <div style="padding:30px;text-align:center"><div class="spinner" style="margin:0 auto"></div></div>
+      </div>
+    </div>
+
+    <!-- NOTIFICATIONS -->
+    <div class="section-card">
+      <div class="section-head">
+        <div>
+          <div class="section-title">🔔 My Notifications</div>
+          <div class="section-sub" id="notifSub">Updates on your tickets</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="clearNotifications()" id="clearNotifBtn" style="font-size:11px;display:none">Clear all</button>
+      </div>
+      <div id="notifList" style="padding:0">
+        <div style="padding:30px;text-align:center"><div class="spinner" style="margin:0 auto"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IT TIPS -->
+  <div class="section-card">
+    <div class="section-head">
+      <div>
+        <div class="section-title">💡 IT Tips</div>
+        <div class="section-sub">Quick things you can try yourself</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="shuffleTips()" style="font-size:11px">↻ New tips</button>
+    </div>
+    <div id="tipsList" style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--border)"></div>
+  </div>
+
   <!-- AVG RESOLUTION TIME -->
   <div class="section-card" id="avgCard" style="display:none">
     <div class="section-head">
@@ -165,33 +242,53 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-heigh
     <div class="avg-bar-wrap" id="avgBars"></div>
   </div>
 
-  <!-- MY TICKETS -->
-  <div class="section-card">
-    <div class="section-head">
-      <div>
-        <div class="section-title">🎫 My Tickets</div>
-        <div class="section-sub" id="myTicketsSub">Your submitted support requests</div>
+  <!-- MY TICKETS + TIMELINE -->
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start">
+
+    <div>
+      <!-- MY TICKETS -->
+      <div class="section-card">
+        <div class="section-head">
+          <div>
+            <div class="section-title">🎫 My Tickets</div>
+            <div class="section-sub" id="myTicketsSub">Your submitted support requests</div>
+          </div>
+          <select class="btn btn-ghost btn-sm" id="myFilter" onchange="renderPortal()" style="padding:5px 10px;font-size:12px">
+            <option value="all">All</option>
+            <option value="open">Open</option>
+            <option value="inprogress">In Progress</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </div>
+        <div id="myTicketsList"><div style="padding:40px;text-align:center"><div class="spinner" style="margin:0 auto"></div></div></div>
       </div>
-      <select class="btn btn-ghost btn-sm" id="myFilter" onchange="renderPortal()" style="padding:5px 10px;font-size:12px">
-        <option value="all">All</option>
-        <option value="open">Open</option>
-        <option value="inprogress">In Progress</option>
-        <option value="resolved">Resolved</option>
-      </select>
+
+      <!-- DEPT COLLEAGUES' TICKETS -->
+      <div class="section-card" id="deptCard" style="margin-top:16px">
+        <div class="section-head">
+          <div>
+            <div class="section-title">👥 Department Tickets</div>
+            <div class="section-sub" id="deptSub">Other open tickets from your department</div>
+          </div>
+        </div>
+        <div id="deptTicketsList"><div style="padding:30px;text-align:center"><div class="spinner" style="margin:0 auto"></div></div></div>
+      </div>
     </div>
-    <div id="myTicketsList"><div style="padding:40px;text-align:center"><div class="spinner" style="margin:0 auto"></div></div></div>
+
+    <!-- TICKET HISTORY TIMELINE -->
+    <div class="section-card" style="position:sticky;top:16px">
+      <div class="section-head">
+        <div>
+          <div class="section-title">📊 My Activity</div>
+          <div class="section-sub">Ticket history timeline</div>
+        </div>
+      </div>
+      <div id="timelineList" style="padding:16px 20px;max-height:520px;overflow-y:auto">
+        <div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">No activity yet</div>
+      </div>
+    </div>
   </div>
 
-  <!-- DEPT COLLEAGUES' TICKETS -->
-  <div class="section-card" id="deptCard">
-    <div class="section-head">
-      <div>
-        <div class="section-title">👥 Department Tickets</div>
-        <div class="section-sub" id="deptSub">Other open tickets from your department</div>
-      </div>
-    </div>
-    <div id="deptTicketsList"><div style="padding:30px;text-align:center"><div class="spinner" style="margin:0 auto"></div></div></div>
-  </div>
 </div>
 
 <!-- NEW TICKET MODAL (with self-help flow) -->
@@ -322,8 +419,13 @@ document.addEventListener('DOMContentLoaded', () => {
     myTickets      = tickets.filter(t => t.submitterEmail === session.email || t.submitter === session.name);
     allDeptTickets = tickets.filter(t => t.department === session.department && t.submitterEmail !== session.email && t.status !== 'resolved');
     renderPortal();
+    renderTimeline(myTickets);
   });
-});
+
+  // Load new sections
+  shuffleTips();
+  loadAnnouncements();
+  loadNotifications(session);
 
 // ── RENDER ────────────────────────────────────────────────────
 function renderPortal() {
@@ -502,6 +604,143 @@ async function submitPortalTicket() {
 }
 
 function doLogout() { SESSION.clear(); window.location.href = 'login.html'; }
+
+// ── IT TIPS ────────────────────────────────────────────────
+const ALL_TIPS = [
+  { icon:'🔄', title:'Restart first', body:'90% of IT issues — slow PC, app crashes, network drops — are fixed by a simple restart.' },
+  { icon:'🌐', title:'Check your connection', body:'Before raising a network ticket, toggle WiFi off and on, or plug in an ethernet cable to test.' },
+  { icon:'🗑️', title:'Clear your cache', body:'Browser acting weird? Ctrl+Shift+Delete → clear cache and cookies → reload.' },
+  { icon:'🔋', title:'Check power settings', body:'Laptop running slow? Check if it is on battery saver mode. Switch to High Performance.' },
+  { icon:'🔒', title:'Lock your screen', body:'Always lock your screen (Win+L) when stepping away — it is a security must.' },
+  { icon:'📧', title:'Phishing alert', body:'Never click links in unexpected emails. Hover over the link first to check the real URL.' },
+  { icon:'💾', title:'Save your work', body:'Save important files to the shared drive or OneDrive — not just your local desktop.' },
+  { icon:'🖨️', title:'Printer offline?', body:'Remove and re-add the printer in Settings → Bluetooth & devices. Usually fixes it.' },
+  { icon:'🔑', title:'Password tip', body:'Use a passphrase — 3 random words + a number. Easier to remember, harder to crack.' },
+  { icon:'📵', title:'App not responding?', body:'Open Task Manager (Ctrl+Shift+Esc) → find the app → End Task → reopen.' },
+  { icon:'📶', title:'Slow WiFi?', body:'Move closer to the router, or ask IT if a network extender is available near your desk.' },
+  { icon:'🖥️', title:'Second monitor issues', body:'Right-click desktop → Display Settings → Detect. If still stuck, unplug and replug the cable.' },
+];
+let tipIndices = [];
+function shuffleTips() {
+  const shuffled = [...ALL_TIPS].sort(() => Math.random() - 0.5);
+  tipIndices = shuffled.slice(0, 3);
+  document.getElementById('tipsList').innerHTML = tipIndices.map(t => `
+    <div class="tip-card">
+      <div class="tip-icon">${t.icon}</div>
+      <div class="tip-title">${t.title}</div>
+      <div class="tip-body">${t.body}</div>
+    </div>`).join('');
+}
+
+// ── ANNOUNCEMENTS ──────────────────────────────────────────
+function loadAnnouncements() {
+  _db.collection('ch_announcements').orderBy('created', 'desc').limit(5)
+    .onSnapshot(snap => {
+      const el = document.getElementById('announcementsList');
+      if (!snap.docs.length) {
+        el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">No announcements yet</div>';
+        return;
+      }
+      el.innerHTML = snap.docs.map(d => {
+        const msg = d.data();
+        return `<div class="ann-item">
+          <div class="ann-dot"></div>
+          <div>
+            <div class="ann-text">${escHtml(msg.text || '')}</div>
+            <div class="ann-time">From ${escHtml(msg.author)} · ${timeAgo(msg.created)}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }, () => {
+      document.getElementById('announcementsList').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Could not load announcements</div>';
+    });
+}
+
+// ── NOTIFICATIONS ──────────────────────────────────────────
+let notifUnseen = [];
+function loadNotifications(sess) {
+  const seenKey = 'hd_notif_seen_' + sess.username;
+  const seenIds = JSON.parse(localStorage.getItem(seenKey) || '[]');
+
+  _db.collection('tickets')
+    .onSnapshot(snap => {
+      const myTickets = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .filter(t => t.submitterEmail === sess.email || t.submitter === sess.name);
+
+      // Build notifications from ticket status
+      const notifs = [];
+      myTickets.forEach(t => {
+        if (t.status === 'inprogress') notifs.push({ id: t.id + '_prog', icon:'🟣', title: t.id + ' is In Progress', sub: t.title, time: t.updated || t.created, unread: !seenIds.includes(t.id + '_prog') });
+        if (t.status === 'resolved')   notifs.push({ id: t.id + '_res',  icon:'✅', title: t.id + ' has been Resolved', sub: t.title, time: t.updated || t.created, unread: !seenIds.includes(t.id + '_res') });
+        if (t.assignee)               notifs.push({ id: t.id + '_asn',  icon:'👤', title: t.id + ' assigned to ' + t.assignee, sub: t.title, time: t.created, unread: !seenIds.includes(t.id + '_asn') });
+      });
+
+      notifs.sort((a,b) => b.time.localeCompare(a.time));
+      const unreadCount = notifs.filter(n => n.unread).length;
+
+      document.getElementById('notifSub').textContent = unreadCount > 0 ? unreadCount + ' unread' : 'All caught up';
+      document.getElementById('clearNotifBtn').style.display = notifs.length ? 'block' : 'none';
+
+      const el = document.getElementById('notifList');
+      if (!notifs.length) {
+        el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">No notifications yet — submit a ticket to get started</div>';
+        return;
+      }
+      el.innerHTML = notifs.slice(0, 8).map(n => `
+        <div class="notif-item${n.unread ? ' unread' : ''}">
+          <div class="notif-icon">${n.icon}</div>
+          <div class="notif-body">
+            <div class="notif-title">${escHtml(n.title)}</div>
+            <div class="notif-sub">${escHtml(n.sub)} · ${timeAgo(n.time)}</div>
+          </div>
+          ${n.unread ? '<div class="notif-dot"></div>' : ''}
+        </div>`).join('');
+    });
+}
+
+function clearNotifications() {
+  const sess = SESSION.get();
+  const seenKey = 'hd_notif_seen_' + sess.username;
+  // Mark all current notif IDs as seen
+  const allIds = [];
+  document.querySelectorAll('.notif-item').forEach(el => {
+    // re-read from DOM is safe enough here
+  });
+  // Simple approach: store a timestamp — anything before now is seen
+  localStorage.setItem(seenKey + '_ts', new Date().toISOString());
+  document.querySelectorAll('.notif-item').forEach(el => {
+    el.classList.remove('unread');
+    const dot = el.querySelector('.notif-dot');
+    if (dot) dot.remove();
+  });
+  document.getElementById('notifSub').textContent = 'All caught up';
+  document.getElementById('clearNotifBtn').style.display = 'none';
+}
+
+// ── TIMELINE ───────────────────────────────────────────────
+function renderTimeline(myTickets) {
+  const events = [];
+  myTickets.forEach(t => {
+    events.push({ time: t.created, icon:'🎫', color:'#0ea5e9', bg:'rgba(14,165,233,0.1)', title:'Submitted ' + t.id, sub: t.title });
+    if (t.status === 'inprogress' && t.updated) events.push({ time: t.updated, icon:'🟣', color:'#a855f7', bg:'rgba(168,85,247,0.1)', title: t.id + ' In Progress', sub: 'Assigned to ' + (t.assignee || 'team') });
+    if (t.status === 'resolved'   && t.updated) events.push({ time: t.updated, icon:'✅', color:'#22c55e', bg:'rgba(34,197,94,0.1)',  title: t.id + ' Resolved', sub: t.title });
+  });
+  events.sort((a,b) => b.time.localeCompare(a.time));
+
+  const el = document.getElementById('timelineList');
+  if (!events.length) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">No activity yet — submit your first ticket!</div>';
+    return;
+  }
+  el.innerHTML = events.slice(0, 20).map(e => `
+    <div class="tl-item">
+      <div class="tl-dot" style="background:${e.bg};color:${e.color}">${e.icon}</div>
+      <div class="tl-content">
+        <div class="tl-title">${escHtml(e.title)}</div>
+        <div class="tl-sub">${escHtml(e.sub)} · ${timeAgo(e.time)}</div>
+      </div>
+    </div>`).join('');
+}
 
 async function doChangePw() {
   const s   = SESSION.get();
