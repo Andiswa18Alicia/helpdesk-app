@@ -422,10 +422,12 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTimeline(myTickets);
   });
 
-  // Load new sections
+  // Load new sections — small delay lets Firebase fully initialise first
   shuffleTips();
-  loadAnnouncements();
-  loadNotifications(session);
+  setTimeout(() => {
+    loadAnnouncements();
+    loadNotifications(session);
+  }, 800);
 
 // ── RENDER ────────────────────────────────────────────────────
 function renderPortal() {
@@ -634,6 +636,11 @@ function shuffleTips() {
 
 // ── ANNOUNCEMENTS ──────────────────────────────────────────
 function loadAnnouncements() {
+  if (!isFirebaseReady()) {
+    document.getElementById('announcementsList').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Connecting...</div>';
+    setTimeout(loadAnnouncements, 1500);
+    return;
+  }
   _db.collection('ch_announcements').orderBy('created', 'desc').limit(5)
     .onSnapshot(snap => {
       const el = document.getElementById('announcementsList');
@@ -657,8 +664,12 @@ function loadAnnouncements() {
 }
 
 // ── NOTIFICATIONS ──────────────────────────────────────────
-let notifUnseen = [];
 function loadNotifications(sess) {
+  if (!isFirebaseReady()) {
+    document.getElementById('notifList').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Connecting...</div>';
+    setTimeout(() => loadNotifications(sess), 1500);
+    return;
+  }
   const seenKey = 'hd_notif_seen_' + sess.username;
   const seenIds = JSON.parse(localStorage.getItem(seenKey) || '[]');
 
@@ -667,7 +678,6 @@ function loadNotifications(sess) {
       const myTickets = snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .filter(t => t.submitterEmail === sess.email || t.submitter === sess.name);
 
-      // Build notifications from ticket status
       const notifs = [];
       myTickets.forEach(t => {
         if (t.status === 'inprogress') notifs.push({ id: t.id + '_prog', icon:'🟣', title: t.id + ' is In Progress', sub: t.title, time: t.updated || t.created, unread: !seenIds.includes(t.id + '_prog') });
@@ -695,6 +705,9 @@ function loadNotifications(sess) {
           </div>
           ${n.unread ? '<div class="notif-dot"></div>' : ''}
         </div>`).join('');
+    }, err => {
+      console.error('Notifications error:', err);
+      document.getElementById('notifList').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Could not load notifications</div>';
     });
 }
 
