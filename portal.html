@@ -398,9 +398,8 @@ document.addEventListener('DOMContentLoaded', () => {
   session = SESSION.get();
   if (!session) { window.location.href = 'login.html'; return; }
   if (session.role === 'admin') { window.location.href = 'index.html'; return; }
-  if (!fbOk) { showToast('Firebase not connected — retrying...', 'error'); setTimeout(() => location.reload(), 3000); return; }
 
-  // Set user info in topbar
+  // Set user info in topbar immediately (doesn't need Firebase)
   const initials = session.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
   document.getElementById('userAvatar').textContent  = initials;
   document.getElementById('userAvatar').style.background = session.color || '#0ea5e9';
@@ -414,20 +413,31 @@ document.addEventListener('DOMContentLoaded', () => {
      </div>`
   ).join('');
 
-  // Subscribe to all tickets (filter client-side)
-  subscribeToTickets(tickets => {
-    myTickets      = tickets.filter(t => t.submitterEmail === session.email || t.submitter === session.name);
-    allDeptTickets = tickets.filter(t => t.department === session.department && t.submitterEmail !== session.email && t.status !== 'resolved');
-    renderPortal();
-    renderTimeline(myTickets);
-  });
-
-  // Load new sections — small delay lets Firebase fully initialise first
   shuffleTips();
-  setTimeout(() => {
+
+  if (!fbOk) {
+    showToast('Firebase not connected — retrying...', 'error');
+    setTimeout(() => location.reload(), 3000);
+    return;
+  }
+
+  // Wait until Firestore is truly ready before subscribing
+  function startFirestoreListeners() {
+    if (!isFirebaseReady()) { setTimeout(startFirestoreListeners, 500); return; }
+
+    // Subscribe to all tickets (filter client-side)
+    subscribeToTickets(tickets => {
+      myTickets      = tickets.filter(t => t.submitterEmail === session.email || t.submitter === session.name);
+      allDeptTickets = tickets.filter(t => t.department === session.department && t.submitterEmail !== session.email && t.status !== 'resolved');
+      renderPortal();
+      renderTimeline(myTickets);
+    });
+
     loadAnnouncements();
     loadNotifications(session);
-  }, 800);
+  }
+  startFirestoreListeners();
+});
 
 // ── RENDER ────────────────────────────────────────────────────
 function renderPortal() {
