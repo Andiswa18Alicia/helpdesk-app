@@ -37,9 +37,6 @@ function initFirebase() {
       firebase.initializeApp(FIREBASE_CONFIG);
     }
     _db = firebase.firestore();
-    // Disable persistence so password changes are never read from stale disk cache
-    _db.settings({ cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED });
-    _db.enableNetwork();
     _firebaseReady = true;
     _db.collection('meta').doc('ping').get({ source: 'server' })
       .then(() => console.log('✅ Firebase connected and responding'))
