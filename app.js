@@ -466,7 +466,8 @@ async function ensureAdminAccounts() {
   try {
     for (const admin of ADMINS) {
       const key = admin.name.toLowerCase();
-      const doc = await _db.collection('users').doc(key).get();
+      // Force server read so we never overwrite a real password due to cache
+      const doc = await _db.collection('users').doc(key).get({ source: 'server' });
       if (!doc.exists) {
         const hash = await hashPassword('Admin@2025!');
         await _db.collection('users').doc(key).set({
@@ -475,8 +476,9 @@ async function ensureAdminAccounts() {
           passwordHash: hash, approved: true,
           created: new Date().toISOString(),
         });
-        console.log('Admin account ready:', admin.name);
+        console.log('Admin account created:', admin.name);
       }
+      // Doc exists — never overwrite, password changes are preserved
     }
   } catch(e) { console.warn('ensureAdminAccounts error:', e.message); }
 }
