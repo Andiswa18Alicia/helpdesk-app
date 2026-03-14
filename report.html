@@ -134,7 +134,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
   <div style="display:flex;align-items:center;gap:10px">
     <div class="live-badge" id="liveBadge" style="display:none"><span class="live-dot"></span>Live</div>
     <button class="btn btn-ghost" onclick="toggleTheme()" id="themeBtn">🌙</button>
-    <button class="btn btn-ghost" onclick="clearSession();window.location.href='login.html'" style="font-size:12px">Sign Out</button>
+    <button class="btn btn-ghost" onclick="SESSION.clear();window.location.href='login.html'" style="font-size:12px">Sign Out</button>
   </div>
 </div>
 
@@ -158,7 +158,9 @@ let period     = 'weekly';
 
 // ── INIT ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  if (!requireAdmin()) return;
+  const session = SESSION.get();
+  if (!session) { window.location.href = 'login.html'; return; }
+  if (session.role !== 'admin') { window.location.href = 'portal.html'; return; }
   const theme = document.documentElement.getAttribute('data-theme');
   document.getElementById('themeBtn').textContent = theme === 'dark' ? '☀️' : '🌙';
 
