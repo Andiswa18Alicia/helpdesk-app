@@ -891,9 +891,9 @@ function renderTimeline(myTickets) {
 
 async function doChangePw() {
   const s   = SESSION.get();
-  const old = document.getElementById('pwOld').value;
-  const nw  = document.getElementById('pwNew').value;
-  const cf  = document.getElementById('pwConfirm').value;
+  const old = document.getElementById('pwOld').value.trim();
+  const nw  = document.getElementById('pwNew').value.trim();
+  const cf  = document.getElementById('pwConfirm').value.trim();
   const al  = document.getElementById('pwAlert');
   const btn = document.getElementById('pwSaveBtn');
   const showAlert = (msg, ok) => {
@@ -907,7 +907,7 @@ async function doChangePw() {
   btn.disabled = true; btn.textContent = 'Saving...';
   const result = await changePassword(s.username, old, nw);
   btn.disabled = false; btn.textContent = '🔐 Update Password';
-  if (result.ok) { showAlert('Password changed successfully!', true); setTimeout(closeSettings, 1800); }
+  if (result.ok) { showAlert('Password changed! Please log in again with your new password.', true); setTimeout(() => { SESSION.clear(); window.location.href = 'login.html'; }, 2500); }
   else { showAlert(result.msg, false); }
 }
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeNewTicket(); });
