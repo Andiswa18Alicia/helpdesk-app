@@ -435,18 +435,21 @@ async function loginUser(username, password) {
     (a.name.toLowerCase() + '@helpdesk.com') === username.toLowerCase()
   );
   if (adminMatch) {
-    // Admin passwords stored in Firestore users collection — force server read to avoid stale cache
-    const snap = await _db.collection('users').doc(username.toLowerCase()).get({ source: 'server' });
+    const key = username.toLowerCase();
+    console.log('loginUser: admin lookup key =', JSON.stringify(key));
+    const snap = await _db.collection('users').doc(key).get({ source: 'server' });
+    console.log('loginUser: doc exists =', snap.exists);
     if (!snap.exists) return { ok: false, msg: 'Account not found' };
     const data = snap.data();
     const hash = await hashPassword(password);
+    console.log('loginUser: stored hash =', data.passwordHash?.slice(0,8), '| input hash =', hash?.slice(0,8));
     if (data.passwordHash !== hash) return { ok: false, msg: 'Incorrect password' };
-    SESSION.set({ name: adminMatch.name, username: username.toLowerCase(), role: 'admin', department: adminMatch.department, email: data.email || '', color: adminMatch.color, avatar: adminMatch.avatar, emoji: adminMatch.emoji });
+    SESSION.set({ name: adminMatch.name, username: key, role: 'admin', department: adminMatch.department, email: data.email || '', color: adminMatch.color, avatar: adminMatch.avatar, emoji: adminMatch.emoji });
     return { ok: true, role: 'admin' };
   }
 
-  // Regular user login — force server read to avoid stale cache
   const lookupKey = username.toLowerCase().trim();
+  console.log('loginUser: staff lookup key =', JSON.stringify(lookupKey));
   const snap = await _db.collection('users').doc(lookupKey).get({ source: 'server' });
   if (!snap.exists) return { ok: false, msg: 'Account not found. Check your username (it is your email address).' };
   const data = snap.data();
@@ -562,16 +565,24 @@ function subscribeToUserTickets(email, department, callback) {
 async function changePassword(username, oldPassword, newPassword) {
   if (!isFirebaseReady()) return { ok: false, msg: 'Firebase not connected' };
   try {
-    const snap = await _db.collection('users').doc(username.toLowerCase()).get({ source: 'server' });
-    if (!snap.exists) return { ok: false, msg: 'Account not found' };
+    const key = username.toLowerCase().trim();
+    console.log('changePassword: looking up doc key =', JSON.stringify(key));
+    const snap = await _db.collection('users').doc(key).get({ source: 'server' });
+    console.log('changePassword: doc exists =', snap.exists);
+    if (!snap.exists) return { ok: false, msg: 'Account not found — key: ' + key };
     const data = snap.data();
     const oldHash = await hashPassword(oldPassword);
+    console.log('changePassword: stored hash =', data.passwordHash?.slice(0,8), '| input hash =', oldHash?.slice(0,8));
     if (data.passwordHash !== oldHash) return { ok: false, msg: 'Current password is incorrect' };
     if (newPassword.length < 8) return { ok: false, msg: 'New password must be at least 8 characters' };
     const newHash = await hashPassword(newPassword);
-    await _db.collection('users').doc(username.toLowerCase()).update({ passwordHash: newHash });
+    await _db.collection('users').doc(key).update({ passwordHash: newHash });
+    console.log('changePassword: updated doc', key, 'with new hash', newHash?.slice(0,8));
     return { ok: true };
-  } catch(e) { return { ok: false, msg: e.message }; }
+  } catch(e) {
+    console.error('changePassword error:', e);
+    return { ok: false, msg: e.message };
+  }
 }
 
 // ── ADMIN: RESET ANOTHER USER'S PASSWORD ─────────────────────
