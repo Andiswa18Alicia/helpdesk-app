@@ -37,13 +37,14 @@ function initFirebase() {
       firebase.initializeApp(FIREBASE_CONFIG);
     }
     _db = firebase.firestore();
+    // Disable persistence so password changes are never read from stale disk cache
+    _db.settings({ cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED });
+    _db.enableNetwork();
     _firebaseReady = true;
-    // Test actual connectivity with a quick read
-    _db.collection('meta').doc('ping').get()
+    _db.collection('meta').doc('ping').get({ source: 'server' })
       .then(() => console.log('✅ Firebase connected and responding'))
       .catch(e => {
         console.error('Firestore read test failed:', e.code, e.message);
-        // Show error on page if topbar-sub exists
         const sub = document.getElementById('topbar-sub');
         if (sub) sub.textContent = '⚠️ Firestore error: ' + e.code;
       });
@@ -435,7 +436,7 @@ async function loginUser(username, password) {
     (a.name.toLowerCase() + '@helpdesk.com') === username.toLowerCase()
   );
   if (adminMatch) {
-    const key = username.toLowerCase();
+    const key = adminMatch.name.toLowerCase(); // always use name as key, not email variant
     console.log('loginUser: admin lookup key =', JSON.stringify(key));
     const snap = await _db.collection('users').doc(key).get({ source: 'server' });
     console.log('loginUser: doc exists =', snap.exists);
@@ -568,18 +569,21 @@ async function changePassword(username, oldPassword, newPassword) {
   if (!isFirebaseReady()) return { ok: false, msg: 'Firebase not connected' };
   try {
     const key = username.toLowerCase().trim();
-    console.log('changePassword: looking up doc key =', JSON.stringify(key));
+    console.log('changePassword: key =', key);
     const snap = await _db.collection('users').doc(key).get({ source: 'server' });
-    console.log('changePassword: doc exists =', snap.exists);
     if (!snap.exists) return { ok: false, msg: 'Account not found — key: ' + key };
     const data = snap.data();
-    const oldHash = await hashPassword(oldPassword);
-    console.log('changePassword: stored hash =', data.passwordHash?.slice(0,8), '| input hash =', oldHash?.slice(0,8));
+    const oldHash = await hashPassword(oldPassword.trim());
+    console.log('changePassword: stored =', data.passwordHash?.slice(0,10), '| old input =', oldHash?.slice(0,10));
     if (data.passwordHash !== oldHash) return { ok: false, msg: 'Current password is incorrect' };
     if (newPassword.length < 8) return { ok: false, msg: 'New password must be at least 8 characters' };
-    const newHash = await hashPassword(newPassword);
-    await _db.collection('users').doc(key).update({ passwordHash: newHash });
-    console.log('changePassword: updated doc', key, 'with new hash', newHash?.slice(0,8));
+    const newHash = await hashPassword(newPassword.trim());
+    await _db.collection('users').doc(key).update({ passwordHash: newHash, updatedAt: new Date().toISOString() });
+    // Verify the write landed correctly
+    const verify = await _db.collection('users').doc(key).get({ source: 'server' });
+    const saved = verify.data().passwordHash;
+    console.log('changePassword: verified saved hash =', saved?.slice(0,10), '| expected =', newHash?.slice(0,10));
+    if (saved !== newHash) return { ok: false, msg: 'Password save failed — please try again' };
     return { ok: true };
   } catch(e) {
     console.error('changePassword error:', e);
