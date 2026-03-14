@@ -222,6 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const sess = SESSION.get();
   if (!sess) return window.location.href = 'login.html';
+  if (sess.role !== 'admin') return window.location.href = 'portal.html';
   if (!SESSION.isSenior()) {
     document.querySelector('.content').innerHTML = `
       <div class="empty-state">
@@ -505,5 +506,6 @@ function fallback(text, cb) {
   document.body.removeChild(ta); cb();
 }
 </script>
+<script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
