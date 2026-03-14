@@ -221,8 +221,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
     </div>
     <div class="nav-section">
       <div class="nav-label">Settings</div>
+      <a class="nav-item" href="community.html">
+        <span class="nav-item-left"><span class="nav-item-icon">💬</span> Community</span>
+      </a>
       <button class="nav-item" onclick="openSettings()">
         <span class="nav-item-left"><span class="nav-item-icon">⚙️</span> Settings</span>
+      </button>
+      <button class="nav-item" onclick="SESSION.clear();window.location.href='login.html'" style="color:var(--critical)">
+        <span class="nav-item-left"><span class="nav-item-icon">🚪</span> Sign Out</span>
       </button>
     </div>
     <div class="sidebar-bottom">
