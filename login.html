@@ -176,7 +176,7 @@ function showAlert(id, msg, type) {
 
 async function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
-  const p = document.getElementById('loginPass').value;
+  const p = document.getElementById('loginPass').value.trim();
   if (!u || !p) { showAlert('loginAlert', 'Please enter your username and password.', 'error'); return; }
 
   const btn = document.getElementById('loginBtn');
