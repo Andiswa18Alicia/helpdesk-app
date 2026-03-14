@@ -131,7 +131,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 
 <div class="topbar">
   <div class="topbar-left">
-    <a class="back-btn" href="index.html">← Back</a>
+    <a class="back-btn" id="backBtn" href="index.html">← Back</a>
     <div class="logo-small">Help<span>Desk</span></div>
     <span style="color:var(--muted);font-family:var(--font-mono);font-size:12px" id="topbar-id"></span>
   </div>
@@ -165,6 +165,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // Auth guard
   const session = SESSION.get();
   if (!session) { window.location.href = 'login.html'; return; }
+  // Set back button to correct page based on role
+  document.getElementById('backBtn').href = session.role === 'admin' ? 'index.html' : 'portal.html';
 
   if (!ticketId) { showNotFound(); return; }
   document.getElementById('topbar-id').textContent = ticketId;
@@ -452,5 +454,6 @@ async function handleDelete() {
   setTimeout(()=>window.location.href='index.html',1000);
 }
 </script>
+<script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
