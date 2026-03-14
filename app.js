@@ -441,7 +441,7 @@ async function loginUser(username, password) {
     console.log('loginUser: doc exists =', snap.exists);
     if (!snap.exists) return { ok: false, msg: 'Account not found' };
     const data = snap.data();
-    const hash = await hashPassword(password);
+    const hash = await hashPassword(password.trim());
     console.log('loginUser: stored hash =', data.passwordHash?.slice(0,8), '| input hash =', hash?.slice(0,8));
     if (data.passwordHash !== hash) return { ok: false, msg: 'Incorrect password' };
     SESSION.set({ name: adminMatch.name, username: key, role: 'admin', department: adminMatch.department, email: data.email || '', color: adminMatch.color, avatar: adminMatch.avatar, emoji: adminMatch.emoji });
@@ -454,7 +454,7 @@ async function loginUser(username, password) {
   if (!snap.exists) return { ok: false, msg: 'Account not found. Check your username (it is your email address).' };
   const data = snap.data();
   if (!data.approved) return { ok: false, msg: 'Your account is pending approval by the Senior Admin.' };
-  const hash = await hashPassword(password);
+  const hash = await hashPassword(password.trim());
   if (data.passwordHash !== hash) return { ok: false, msg: 'Incorrect password. Try again.' };
   SESSION.set({ name: data.name, username: lookupKey, role: 'user', department: data.department, email: data.email, color: '#64748b', avatar: data.name[0].toUpperCase() });
   return { ok: true, role: 'user' };
