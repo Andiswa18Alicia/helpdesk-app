@@ -435,8 +435,8 @@ async function loginUser(username, password) {
     (a.name.toLowerCase() + '@helpdesk.com') === username.toLowerCase()
   );
   if (adminMatch) {
-    // Admin passwords stored in Firestore users collection
-    const snap = await _db.collection('users').doc(username.toLowerCase()).get();
+    // Admin passwords stored in Firestore users collection — force server read to avoid stale cache
+    const snap = await _db.collection('users').doc(username.toLowerCase()).get({ source: 'server' });
     if (!snap.exists) return { ok: false, msg: 'Account not found' };
     const data = snap.data();
     const hash = await hashPassword(password);
@@ -445,9 +445,9 @@ async function loginUser(username, password) {
     return { ok: true, role: 'admin' };
   }
 
-  // Regular user login — username stored as email (lowercase)
+  // Regular user login — force server read to avoid stale cache
   const lookupKey = username.toLowerCase().trim();
-  const snap = await _db.collection('users').doc(lookupKey).get();
+  const snap = await _db.collection('users').doc(lookupKey).get({ source: 'server' });
   if (!snap.exists) return { ok: false, msg: 'Account not found. Check your username (it is your email address).' };
   const data = snap.data();
   if (!data.approved) return { ok: false, msg: 'Your account is pending approval by the Senior Admin.' };
@@ -562,7 +562,7 @@ function subscribeToUserTickets(email, department, callback) {
 async function changePassword(username, oldPassword, newPassword) {
   if (!isFirebaseReady()) return { ok: false, msg: 'Firebase not connected' };
   try {
-    const snap = await _db.collection('users').doc(username.toLowerCase()).get();
+    const snap = await _db.collection('users').doc(username.toLowerCase()).get({ source: 'server' });
     if (!snap.exists) return { ok: false, msg: 'Account not found' };
     const data = snap.data();
     const oldHash = await hashPassword(oldPassword);
