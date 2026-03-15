@@ -434,20 +434,16 @@ async function loginUser(username, password) {
   );
   if (adminMatch) {
     const key = adminMatch.name.toLowerCase(); // always use name as key, not email variant
-    console.log('loginUser: admin lookup key =', JSON.stringify(key));
     const snap = await _db.collection('users').doc(key).get({ source: 'server' });
-    console.log('loginUser: doc exists =', snap.exists);
     if (!snap.exists) return { ok: false, msg: 'Account not found' };
     const data = snap.data();
     const hash = await hashPassword(password.trim());
-    console.log('loginUser: stored hash =', data.passwordHash?.slice(0,8), '| input hash =', hash?.slice(0,8));
     if (data.passwordHash !== hash) return { ok: false, msg: 'Incorrect password' };
     SESSION.set({ name: adminMatch.name, username: key, role: 'admin', department: adminMatch.department, email: data.email || '', color: adminMatch.color, avatar: adminMatch.avatar, emoji: adminMatch.emoji });
     return { ok: true, role: 'admin' };
   }
 
   const lookupKey = username.toLowerCase().trim();
-  console.log('loginUser: staff lookup key =', JSON.stringify(lookupKey));
   const snap = await _db.collection('users').doc(lookupKey).get({ source: 'server' });
   if (!snap.exists) return { ok: false, msg: 'Account not found. Check your username (it is your email address).' };
   const data = snap.data();
@@ -525,12 +521,11 @@ async function approveAccessRequest(reqId, req) {
       created: new Date().toISOString(),
     });
 
-    // Mark the access request as approved
+    // Mark the access request as approved — do NOT store plain text password
     await _db.collection('accessRequests').doc(reqId).update({
       status: 'approved',
       approvedAt: new Date().toISOString(),
       username,
-      generatedPassword: password,
     });
 
     return { ok: true, username, password };
@@ -566,12 +561,10 @@ async function changePassword(username, oldPassword, newPassword) {
   if (!isFirebaseReady()) return { ok: false, msg: 'Firebase not connected' };
   try {
     const key = username.toLowerCase().trim();
-    console.log('changePassword: key =', key);
     const snap = await _db.collection('users').doc(key).get({ source: 'server' });
     if (!snap.exists) return { ok: false, msg: 'Account not found — key: ' + key };
     const data = snap.data();
     const oldHash = await hashPassword(oldPassword.trim());
-    console.log('changePassword: stored =', data.passwordHash?.slice(0,10), '| old input =', oldHash?.slice(0,10));
     if (data.passwordHash !== oldHash) return { ok: false, msg: 'Current password is incorrect' };
     if (newPassword.length < 8) return { ok: false, msg: 'New password must be at least 8 characters' };
     const newHash = await hashPassword(newPassword.trim());
@@ -579,7 +572,6 @@ async function changePassword(username, oldPassword, newPassword) {
     // Verify the write landed correctly
     const verify = await _db.collection('users').doc(key).get({ source: 'server' });
     const saved = verify.data().passwordHash;
-    console.log('changePassword: verified saved hash =', saved?.slice(0,10), '| expected =', newHash?.slice(0,10));
     if (saved !== newHash) return { ok: false, msg: 'Password save failed — please try again' };
     return { ok: true };
   } catch(e) {
