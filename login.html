@@ -62,7 +62,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-heigh
     <div id="loginAlert" style="display:none"></div>
     <div class="form-group">
       <label class="form-label">Username</label>
-      <input class="form-input" id="loginUser" placeholder="andiswa / your.email@company.co.za" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+      <input class="form-input" id="loginUser" placeholder="Your username or email" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
       <div style="font-size:11px;color:var(--muted);margin-top:5px">Admins: use your first name &nbsp;·&nbsp; Staff: use your email address</div>
     </div>
     <div class="form-group">
@@ -88,7 +88,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-heigh
     <div id="resetAlert" style="display:none"></div>
     <div class="form-group">
       <label class="form-label">Username</label>
-      <input class="form-input" id="resetUser" placeholder="e.g. andiswa or your email">
+      <input class="form-input" id="resetUser" placeholder="Your username or email">
     </div>
     <div class="form-group">
       <label class="form-label">New Password</label>
@@ -281,5 +281,6 @@ async function doRequest() {
   }
 }
 </script>
+<script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
