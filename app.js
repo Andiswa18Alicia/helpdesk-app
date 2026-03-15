@@ -463,7 +463,7 @@ async function ensureAdminAccounts() {
       // Force server read so we never overwrite a real password due to cache
       const doc = await _db.collection('users').doc(key).get({ source: 'server' });
       if (!doc.exists) {
-        const hash = await hashPassword('Admin@2025!');
+        const hash = await hashPassword('Changeme#1!');
         await _db.collection('users').doc(key).set({
           name: admin.name, username: key, email: key + '@helpdesk.com',
           department: admin.department, role: 'admin',
